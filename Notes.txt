@@ -1,0 +1,13 @@
+First read chapter in the book
+Write constraints and chosen parameters on top of the block diagram
+172 bits somewhere
+Discuss it with Orion
+
+
+Combine CDMA and Convolutional codes, no additions
+Not think of MIMO before finishing and perfectly working part 1
+Start basic and then add on top
+No need to stick to all details, start functionnal first
+
+Office hours every friday,
+Finish first part by next friday 
