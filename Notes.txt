@@ -11,3 +11,6 @@ No need to stick to all details, start functionnal first
 
 Office hours every friday,
 Finish first part by next friday 
+
+Interleaver would not add anything first as we already use random sequence
+Same for deep fadings
