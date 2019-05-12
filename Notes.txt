@@ -14,3 +14,10 @@ Finish first part by next friday
 
 Interleaver would not add anything first as we already use random sequence
 Same for deep fadings
+
+
+
+Communication at 172 bits : p.350 (Voice compression)
+Noise and correlation : Start of page 352, 355 just before Multiaccess
+6-64 allows a reduction in error probability ? p. 353-354
+Different users use a different phase of the PN sequence -> uncorrelated (p.356)
