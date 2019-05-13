@@ -41,25 +41,30 @@ Results = zeros(1,length(P.SNRRange));
 % TODO: Convolutional encoding
 % K=9, une seule input
 % 3 outputs, donc on a 1/3 de rate
-% maintenant faut trouver les bon coefficients pou le trellis, le c'est au
-% bol, Surprise!!! c'est en octal!! 777|8 c'est 111111111|9 
-trellis = poly2trellis(9,[777 354 354])
+% Surprise!!! c'est en octal!! 777|8 c'est 111111111|9 
+% https://coderstoolbox.net/number/
+% verifier si c'est les bon coeff!
+trellis = poly2trellis(9,[557 663 711]);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
+convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated');
 
 for ii = 1:P.NumberOfFrames
     
     ii
 
-    bits = randi([0 1],NumberOfBits,1); % Random Data
+    bits = randi([0 1],1,NumberOfBits); % Random Data
     
     
     % TODO: Convolutional encoding
-    bits = step(convEnc,bits);
+    foo = step(convEnc,bits.');
+    % TODO taking only the first stream?? dunno we got 540 and 540/3=180
+    % which is 172+8 bits!
+    foo = foo(1:NumberOfBits);
  
     % Modulation
     switch P.Modulation % Modulate Symbols
         case 1, % BPSK
-            symbols = -(2*bits - 1);
+            symbols = -(2*foo - 1);
         otherwise,
             disp('Modulation not supported')
     end
@@ -128,6 +133,11 @@ for ii = 1:P.NumberOfFrames
             otherwise,
                 disp('Source Encoding not supported')
         end
+        
+        % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
+        % :S
+        % rxbits = step(convDec,rxbits.'); right now it doesnt work,
+        % problem of shape and size of array
         
         % BER count
         errors =  sum(rxbits ~= bits);
