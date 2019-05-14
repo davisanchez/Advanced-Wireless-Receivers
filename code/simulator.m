@@ -8,14 +8,14 @@
 
 function BER = simulator(P)
 
-    if P.CDMAUsers > P.HamLen
-       disp('WARNING: More user then sequences');
-       BER = -1;
-       return;
-    end
+%     if P.CDMAUsers > P.HamLen %% Not the way it should work for us !
+%        disp('WARNING: More user then sequences');
+%        BER = -1;
+%        return;
+%     end
     RX = P.CDMAUsers;
     
-    % Generate the spreading sequences
+    % Generate the spreading sequences % Custom matrix here
     HadamardMatrix = hadamard(P.HamLen)/sqrt(P.HamLen);            
     SpreadSequence = HadamardMatrix;
     
@@ -44,7 +44,8 @@ Results = zeros(1,length(P.SNRRange));
 % Surprise!!! c'est en octal!! 777|8 c'est 111111111|9 
 % https://coderstoolbox.net/number/
 % verifier si c'est les bon coeff!
-trellis = poly2trellis(9,[557 663 711]);
+% Note that these are terminated, so they include the tail
+trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
 convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated');
 
@@ -54,14 +55,18 @@ for ii = 1:P.NumberOfFrames
 
     bits = randi([0 1],1,NumberOfBits); % Random Data
     
+    % TODO Add Frame Quality Indicator (bonus)
     
     % TODO: Convolutional encoding
     foo = step(convEnc,bits.');
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
-    % which is 172+8 bits!
-    foo = foo(1:NumberOfBits);
+    % which is 172+8 bits! No we take everything, we increase the rate
+    % foo = foo(1:NumberOfBits);
  
-    % Modulation
+    % Here comes the interleaver (TODO)
+    
+    
+    % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
         case 1, % BPSK
             symbols = -(2*foo - 1);
