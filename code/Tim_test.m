@@ -19,14 +19,11 @@ P.ChannelLength = 1;
 
 P.HamLen = 64; % Length of Hadamard Sequence
 
-P.K = 9; % Length of convolutional encoder
-P.ConvSeq = [557 663 711]; % Rate 1/3
-
 P.SNRRange = -10:20; % SNR Range to simulate in dB
 
-% P.ReceiverType  = 'Rake'; % Only one type for the project
+P.ReceiverType  = 'Rake';
 
-BER = simulator(P);
+BER = simulator_Tim(P);
 
 simlab = sprintf('%s - Length: %d - Users: %d' ,P.ChannelType,P.ChannelLength,P.CDMAUsers);
 
