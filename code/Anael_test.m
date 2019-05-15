@@ -6,6 +6,7 @@
 % EPFL
 
 % Parameters
+P.ReceiverType  = 'Rake';
 P.NumberOfFrames      = 500;
 P.NumberOfSymbols     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
 

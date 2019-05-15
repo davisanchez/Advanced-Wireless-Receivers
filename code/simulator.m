@@ -19,13 +19,15 @@ function BER = simulator(P)
     HadamardMatrix = hadamard(P.HamLen)/sqrt(P.HamLen);            
     SpreadSequence = HadamardMatrix;
     
-    SeqLen         = P.HamLen;
+    SeqLen         = P.HamLen; 
     
-    NumberOfChips  = P.NumberOfSymbols*P.Modulation*SeqLen; % per Frame
+    %TODO magick number 3x172 -> 1/rate X Number of bits    
+    NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
+    
+    RATE_BITS      = 3 * NumberOfBits;
+    NumberOfChips  = P.HamLen * RATE_BITS; % per Frame
 
     PNSequence     = genbarker(NumberOfChips); % -(2*step(GS)-1);
-    
-    NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
     
     % Channel
@@ -58,7 +60,8 @@ for ii = 1:P.NumberOfFrames
     % TODO Add Frame Quality Indicator (bonus)
     
     % TODO: Convolutional encoding
-    foo = step(convEnc,bits.');
+    % foo = step(convEnc,bits.');
+    foo = convenc(bits,trellis);
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
     % which is 172+8 bits! No we take everything, we increase the rate
     % foo = foo(1:NumberOfBits);
@@ -76,7 +79,8 @@ for ii = 1:P.NumberOfFrames
     
 
     % distribute symbols on users
-    SymUsers = reshape(symbols,RX,NumberOfBits/RX);
+    %TODO length(symbols) <- NumberOfBits
+    SymUsers = reshape(symbols,RX,length(symbols)/RX);
         
     % multiply hadamard
     txsymbols = SpreadSequence(:,1:RX) * SymUsers;
@@ -129,11 +133,13 @@ for ii = 1:P.NumberOfFrames
                 for j=1:RX
                     y_rx=y(:,:,j);
                     for i=1:P.ChannelLength    
-                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX);          
+                        %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
+                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),SeqLen,RATE_BITS/RX);          
                         rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
                         rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
                     end
-                    rxbits(j:RX:RX*P.NumberOfSymbols) = reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                    %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                    rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
                 end
             otherwise,
                 disp('Source Encoding not supported')
@@ -143,7 +149,8 @@ for ii = 1:P.NumberOfFrames
         % :S
         % rxbits = step(convDec,rxbits.'); right now it doesnt work,
         % problem of shape and size of array
-        
+        rxbits = vitdec(rxbits,trellis,34,'trunc','hard');
+
         % BER count
         errors =  sum(rxbits ~= bits);
         
