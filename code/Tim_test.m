@@ -17,7 +17,7 @@ P.Modulation    = 1;        % 1: BPSK
 P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading'
 P.ChannelLength = 1;
 
-P.HamLen = 8; % Length of Hadamard Sequence
+P.HamLen = 64; % Length of Hadamard Sequence
 
 P.SNRRange = -10:20; % SNR Range to simulate in dB
 
