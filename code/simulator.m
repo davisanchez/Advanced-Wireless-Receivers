@@ -8,15 +8,10 @@
 
 function BER = simulator(P)
 
-%     if P.CDMAUsers > P.HamLen %% Not the way it should work for us !
-%        disp('WARNING: More user then sequences');
-%        BER = -1;
-%        return;
-%     end
     RX = P.CDMAUsers;
     
     % Generate the spreading sequences % Custom matrix here
-    HadamardMatrix = hadamard(P.HamLen)/sqrt(P.HamLen);            
+    HadamardMatrix = hadamard(P.HamLen);%/sqrt(P.HamLen);   TODO          
     SpreadSequence = HadamardMatrix;
     
     SeqLen         = P.HamLen; 
@@ -25,7 +20,7 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
     RATE_BITS      = 3 * NumberOfBits;
-    NumberOfChips  = P.HamLen * RATE_BITS; % per Frame
+    NumberOfChips  = P.HamLen * RATE_BITS/6; % per Frame
 
     PNSequence     = genbarker(NumberOfChips); % -(2*step(GS)-1);
     
@@ -61,7 +56,7 @@ for ii = 1:P.NumberOfFrames
     
     % TODO: Convolutional encoding
     % foo = step(convEnc,bits.');
-    foo = convenc(bits,trellis);
+    encoded_bits = convenc(bits,trellis);
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
     % which is 172+8 bits! No we take everything, we increase the rate
     % foo = foo(1:NumberOfBits);
@@ -72,7 +67,7 @@ for ii = 1:P.NumberOfFrames
     % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
         case 1, % BPSK
-            symbols = -(2*foo - 1);
+            symbols = -(2*encoded_bits - 1);
         otherwise,
             disp('Modulation not supported')
     end
@@ -81,15 +76,11 @@ for ii = 1:P.NumberOfFrames
     % distribute symbols on users
     %TODO length(symbols) <- NumberOfBits
     SymUsers = reshape(symbols,RX,length(symbols)/RX);
-        
-    % multiply hadamard
-    txsymbols = SpreadSequence(:,1:RX) * SymUsers;
-        
-    % apply Barker code
-    waveform = txsymbols(:).*PNSequence;
+    
+    % TODO: Upsampling with Hadamard
+    hada_bits = HadamardMatrix(bi2de(reshape(encoded_bits, length(encoded_bits)/6, 6))+1,:);
+    waveform = reshape(hada_bits, 1, P.HamLen*length(encoded_bits)/6);
 
-    % reshape to add multi RX antenna suppport
-    waveform  = reshape(waveform,1,NumberOfChips);
     mwaveform = repmat(waveform,[1 1 RX]);
     
     % Channel
@@ -134,12 +125,16 @@ for ii = 1:P.NumberOfFrames
                     y_rx=y(:,:,j);
                     for i=1:P.ChannelLength    
                         %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
-                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),SeqLen,RATE_BITS/RX);          
-                        rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
-                        rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
+                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),RATE_BITS/6*RX, P.HamLen);
+                        [~,indx]=ismember( sign(real(y_reshape)),HadamardMatrix,'rows');
+                        rxbits = reshape(de2bi(indx-1, 6), 1, 516); %TODO magick number
+                        
+                        % TODO remove this???
+                        %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
+                        %rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
                     end
                     %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
-                    rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
+                    %rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
                 end
             otherwise,
                 disp('Source Encoding not supported')
