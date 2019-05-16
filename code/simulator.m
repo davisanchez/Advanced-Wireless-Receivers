@@ -24,7 +24,7 @@ function BER = simulator(P)
     %TODO magick number 3x172 -> 1/rate X Number of bits    
     NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
-    RATE_BITS      = 3 * NumberOfBits;
+    RATE_BITS = P.Rate * NumberOfBits;
     NumberOfChips  = P.HamLen * RATE_BITS; % per Frame
 
     PNSequence     = genbarker(NumberOfChips); % -(2*step(GS)-1);
@@ -32,9 +32,9 @@ function BER = simulator(P)
     
     % Channel
     switch P.ChannelType
-        case 'Multipath',
+        case 'Multipath'
             NumberOfChipsRX   = NumberOfChips+P.ChannelLength-1;
-        otherwise,
+        otherwise
             NumberOfChipsRX = NumberOfChips;
     end
 
@@ -60,20 +60,24 @@ for ii = 1:P.NumberOfFrames
     % TODO Add Frame Quality Indicator (bonus)
     
     % TODO: Convolutional encoding
-    % foo = step(convEnc,bits.');
-    foo = convenc(bits,trellis);
+    % conv_bits = step(convEnc,bits.');
+    conv_bits = convenc(bits,trellis);
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
     % which is 172+8 bits! No we take everything, we increase the rate
-    % foo = foo(1:NumberOfBits);
+    % conv_bits = conv_bits(1:NumberOfBits);
  
     % Here comes the interleaver (TODO)
     
     
     % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
-        case 1, % BPSK
-            symbols = -(2*foo - 1);
-        otherwise,
+        case 1 % BPSK
+            symbols = -(2*conv_bits - 1);
+        case 2 % 64ary
+            symbols = reshape(conv_bits,P.HadIn,length(conv_bits)/P.HadIn);
+            had_index = bi2de(symbols.'); % Not sure...
+            symbols = HadamardMatrix(had_index(:)+1,:);
+        otherwise
             disp('Modulation not supported')
     end
     
