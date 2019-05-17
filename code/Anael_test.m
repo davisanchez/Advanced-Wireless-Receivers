@@ -5,6 +5,8 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
+clc; clear all; close all;
+
 % Parameters
 P.ReceiverType  = 'Rake';
 P.NumberOfFrames      = 50;
@@ -26,6 +28,7 @@ P.ConvSeq = [557 663 711]; % Rate 1/3
 P.Rate = 3;
 
 P.LongCodeLength = 42; % PN Sequence
+P.RakeFingers = 2; 
 
 P.SNRRange = -10:20; % SNR Range to simulate in dB
 

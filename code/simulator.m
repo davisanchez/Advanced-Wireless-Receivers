@@ -20,9 +20,10 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = P.HamLen * RATE_BITS/P.HadIn; % per Frame
+    NumberOfChips  = P.NumberOfSymbols*P.Modulation*SeqLen*P.LongCodeLength*P.Rate/P.HadIn;
+    % NumberOfChips  = P.HamLen * RATE_BITS/P.HadIn; % per Frame
 
-    PNSequence     = genbarker(NumberOfChips); % -(2*step(GS)-1);
+    PNSequence     = genbarker(P.LongCodeLength); % -(2*step(GS)-1);
     
     
     % Channel
@@ -35,11 +36,6 @@ function BER = simulator(P)
 
 Results = zeros(1,length(P.SNRRange));
 
-% TODO: Convolutional encoding
-% K=9, une seule input
-% 3 outputs, donc on a 1/3 de rate
-% Surprise!!! c'est en octal!! 777|8 c'est 111111111|9 
-% https://coderstoolbox.net/number/
 % verifier si c'est les bon coeff!
 % Note that these are terminated, so they include the tail
 trellis = poly2trellis(P.K, P.ConvSeq);
@@ -82,15 +78,19 @@ for ii = 1:P.NumberOfFrames
     SymUsers = reshape(symbols,RX,length(symbols)/RX);
     
     % TODO: Upsampling with Hadamard
-    hada_bits = HadamardMatrix(bi2de(reshape(encoded_bits, length(encoded_bits)/6, 6))+1,:);
-    waveform = reshape(hada_bits, 1, P.HamLen*length(encoded_bits)/6);
+    hada_bits = HadamardMatrix(bi2de(reshape(encoded_bits, length(encoded_bits)/P.HadIn, P.HadIn))+1,:);
+    waveform = reshape(hada_bits, 1, P.HamLen*length(encoded_bits)/P.HadIn);
+    
+    % Pulse Shape (PNSequence)
+    spread_waveform = PNSequence*waveform;
+    waveform  = reshape(spread_waveform,1,NumberOfChips);
 
-    mwaveform = repmat(waveform,[1 1 RX]);
+    mwaveform = repmat(waveform,[P.RakeFingers 1 RX]); %WTF happens here ?
     
     % Channel
     switch P.ChannelType
         case 'AWGN',
-            himp = ones(RX,1);
+            himp = ones(P.RakeFingers,1);
         case 'Multipath',
             himp = sqrt(1/2)* ( randn(RX,P.ChannelLength) + 1i * randn(RX,P.ChannelLength) );
 %             himp = (ones(RX,1) * sqrt(P.PDP)) .* himp;
@@ -111,7 +111,11 @@ for ii = 1:P.NumberOfFrames
         % Channel
         switch P.ChannelType
             case 'AWGN',
-                y = mwaveform;% + noise;
+                y = zeros(P.RakeFingers,NumberOfChips,RX); %Normally add the users here!
+                for i = 1:P.RakeFingers
+                    y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:));% + noise(1,:,i); 
+                end
+                %y = mwaveform;% + noise;
             case 'Multipath'     
                 y = zeros(1,NumberOfChips+P.ChannelLength-1,RX);
                 for i = 1:RX
@@ -125,6 +129,16 @@ for ii = 1:P.NumberOfFrames
         % Receiver
         switch P.ReceiverType
             case 'Rake',  
+                % Despreading
+                [~,ind] = maxk(himp,P.RakeFingers);
+                for(finger = 1:P.RakeFingers)
+                    rxsymbols(finger,:) = conj(himp(ind(finger)))*PNSequence.'*...
+                        reshape(y(ind(finger),1:NumberOfChips,RX),...
+                                P.LongCodeLength, NumberOfChips/P.LongCodeLength)/42;
+                end
+                rxbits = reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                
+                % Hadamard
                 for j=1:RX
                     y_rx=sign(real(y(:,:,j))); %TODO hard decision, good?
 
