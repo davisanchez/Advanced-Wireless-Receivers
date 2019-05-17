@@ -126,12 +126,13 @@ for ii = 1:P.NumberOfFrames
         switch P.ReceiverType
             case 'Rake',  
                 for j=1:RX
-                    y_rx=y(:,:,j);
+                    y_rx=sign(real(y(:,:,j))); %TODO hard decision, good?
+
                     for i=1:P.ChannelLength    
                         %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
-                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),RATE_BITS/6*RX, P.HamLen);
-                        [~,indx]=ismember( sign(real(y_reshape)),HadamardMatrix,'rows');
-                        rxbits = reshape(de2bi(indx-1, 6), 1, 516); %TODO magick number
+                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),RATE_BITS/6*RX,P.HamLen);
+                        [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
+                        rxbits = reshape(de2bi(max(0,indx-1), 6), 1, 516); %TODO magick number + max(0, ..) WTF????
                         
                         % TODO remove this???
                         %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
