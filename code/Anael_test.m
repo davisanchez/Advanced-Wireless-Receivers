@@ -7,21 +7,25 @@
 
 % Parameters
 P.ReceiverType  = 'Rake';
-P.NumberOfFrames      = 500;
+P.NumberOfFrames      = 50;
 P.NumberOfSymbols     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
 
 P.AccessType = 'CDMA';
 P.CDMAUsers     = 1;
 
-P.Modulation    = 1;        % 1: BPSK
+P.Modulation    = 2;        % 1: BPSK, 2: 64ary
 
 P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading'
 P.ChannelLength = 1;
 
 P.HamLen = 64; % Length of Hadamard Sequence
+P.HadIn = 6; % Length of Hadamard input (6 -> 64)
 
 P.K = 9; % Length of convolutional encoder
 P.ConvSeq = [557 663 711]; % Rate 1/3
+P.Rate = 3;
+
+P.LongCodeLength = 42; % PN Sequence
 
 P.SNRRange = -10:20; % SNR Range to simulate in dB
 
