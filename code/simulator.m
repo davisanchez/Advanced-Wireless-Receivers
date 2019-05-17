@@ -20,7 +20,7 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = P.HamLen * RATE_BITS; % per Frame
+    NumberOfChips  = P.HamLen * RATE_BITS/P.HadIn; % per Frame
 
     PNSequence     = genbarker(NumberOfChips); % -(2*step(GS)-1);
     
@@ -111,7 +111,7 @@ for ii = 1:P.NumberOfFrames
         % Channel
         switch P.ChannelType
             case 'AWGN',
-                y = mwaveform + noise;
+                y = mwaveform;% + noise;
             case 'Multipath'     
                 y = zeros(1,NumberOfChips+P.ChannelLength-1,RX);
                 for i = 1:RX
