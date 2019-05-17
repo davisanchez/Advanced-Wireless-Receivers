@@ -113,7 +113,7 @@ for ii = 1:P.NumberOfFrames
             case 'AWGN',
                 y = zeros(P.RakeFingers,NumberOfChips,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
-                    y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:));% + noise(1,:,i); 
+                    y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
                 %y = mwaveform;% + noise;
             case 'Multipath'     
@@ -136,28 +136,30 @@ for ii = 1:P.NumberOfFrames
                         reshape(y(ind(finger),1:NumberOfChips,RX),...
                                 P.LongCodeLength, NumberOfChips/P.LongCodeLength)/42;
                 end
-                rxbits = rxsymbols(1,:); %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                desp_bits = sign(real(rxsymbols(1,:))); %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
                 
-                % Hadamard
-                for j=1:RX
-                    y_rx=sign(real(y(:,:,j))); %TODO hard decision, good?
-
-                    for i=1:P.ChannelLength    
-                        %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
-                        y_reshape=reshape(y_rx(i:i+NumberOfChips-1),RATE_BITS/6*RX,P.HamLen);
-                        [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
-                        rxbits = reshape(de2bi(max(0,indx-1), 6), 1, 516); %TODO magick number + max(0, ..) WTF????
-                        
-                        % TODO remove this???
-                        %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
-                        %rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
-                    end
-                    %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
-                    %rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
-                end
+%                 % Hadamard
+%                 for j=1:RX
+%                     y_rx=rxbits;%sign(real(y(:,:,j))); %TODO hard decision, good?
+% 
+%                     for i=1:P.ChannelLength    
+%                         %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
+%                         
+%                         
+%                         % TODO remove this???
+%                         %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
+%                         %rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
+%                     end
+%                     %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+%                     %rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
+%                 end
             otherwise,
                 disp('Source Encoding not supported')
         end
+        %Hadamard
+        y_reshape=reshape(desp_bits,RATE_BITS/6*RX,P.HamLen);
+        [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
+        rxbits = reshape(de2bi(max(0,indx-1), 6), 1, 516); %TODO magick number + max(0, ..) WTF????
         
         % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
         % :S

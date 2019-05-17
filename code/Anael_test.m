@@ -30,7 +30,7 @@ P.Rate = 3;
 P.LongCodeLength = 42; % PN Sequence
 P.RakeFingers = 2; 
 
-P.SNRRange = -10:20; % SNR Range to simulate in dB
+P.SNRRange = -50:10:0; % SNR Range to simulate in dB
 
 % P.ReceiverType  = 'Rake'; % Only one type for the project
 
