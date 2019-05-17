@@ -136,7 +136,7 @@ for ii = 1:P.NumberOfFrames
                         reshape(y(ind(finger),1:NumberOfChips,RX),...
                                 P.LongCodeLength, NumberOfChips/P.LongCodeLength)/42;
                 end
-                rxbits = reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                rxbits = rxsymbols(1,:); %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
                 
                 % Hadamard
                 for j=1:RX
