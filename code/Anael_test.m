@@ -13,7 +13,7 @@ P.NumberOfSymbols     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSy
 P.AccessType = 'CDMA';
 P.CDMAUsers     = 1;
 
-P.Modulation    = 2;        % 1: BPSK, 2: 64ary
+P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 
 P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading'
 P.ChannelLength = 1;

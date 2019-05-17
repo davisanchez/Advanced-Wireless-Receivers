@@ -56,7 +56,7 @@ for ii = 1:P.NumberOfFrames
     
     % TODO: Convolutional encoding
     % conv_bits = step(convEnc,bits.');
-    conv_bits = convenc(bits,trellis);
+    encoded_bits = convenc(bits,trellis);
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
     % which is 172+8 bits! No we take everything, we increase the rate
     % conv_bits = conv_bits(1:NumberOfBits);
@@ -67,11 +67,11 @@ for ii = 1:P.NumberOfFrames
     % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
         case 1 % BPSK
-            symbols = -(2*conv_bits - 1);
+            symbols = -(2*encoded_bits - 1);
         case 2 % 64ary
-            symbols = reshape(conv_bits,P.HadIn,length(conv_bits)/P.HadIn);
-            had_index = bi2de(symbols.'); % Not sure...
-            symbols = HadamardMatrix(had_index(:)+1,:);
+%             symbols = reshape(conv_bits,P.HadIn,length(conv_bits)/P.HadIn);
+%             had_index = bi2de(symbols.'); % Not sure...
+%             symbols = HadamardMatrix(had_index(:)+1,:);
         otherwise
             disp('Modulation not supported')
     end
