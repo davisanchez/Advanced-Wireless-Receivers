@@ -20,7 +20,7 @@ P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading'
 P.ChannelLength = 1;
 
-P.HamLen = 64; % Length of Hadamard Sequence
+P.HadLen = 64; % Length of Hadamard Sequence
 P.HadIn = 6; % Length of Hadamard input (6 -> 64)
 
 P.K = 9; % Length of convolutional encoder

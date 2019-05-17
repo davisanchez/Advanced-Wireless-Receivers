@@ -11,17 +11,14 @@ function BER = simulator(P)
     RX = P.CDMAUsers;
     
     % Generate the spreading sequences % Custom matrix here
-    HadamardMatrix = hadamard(P.HamLen);%/sqrt(P.HamLen);   TODO          
-    SpreadSequence = HadamardMatrix;
-    
-    SeqLen         = P.HamLen; 
+    HadamardMatrix = hadamard(P.HadLen);%/sqrt(P.HadLen);   TODO          
     
     %TODO magick number 3x172 -> 1/rate X Number of bits    
     NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = P.NumberOfSymbols*P.Modulation*SeqLen*P.LongCodeLength*P.Rate/P.HadIn;
-    % NumberOfChips  = P.HamLen * RATE_BITS/P.HadIn; % per Frame
+    NumberOfChips  = P.NumberOfSymbols*P.Modulation*P.HadLen/P.HadIn*P.LongCodeLength*P.Rate;
+    % NumberOfChips  = P.HadLen * RATE_BITS/P.HadIn; % per Frame
 
     PNSequence     = genbarker(P.LongCodeLength); % -(2*step(GS)-1);
     
@@ -79,7 +76,7 @@ for ii = 1:P.NumberOfFrames
     
     % TODO: Upsampling with Hadamard
     hada_bits = HadamardMatrix(bi2de(reshape(encoded_bits, length(encoded_bits)/P.HadIn, P.HadIn))+1,:);
-    waveform = reshape(hada_bits, 1, P.HamLen*length(encoded_bits)/P.HadIn);
+    waveform = reshape(hada_bits, 1, P.HadLen*length(encoded_bits)/P.HadIn);
     
     % Pulse Shape (PNSequence)
     spread_waveform = PNSequence*waveform;
@@ -106,7 +103,7 @@ for ii = 1:P.NumberOfFrames
     for ss = 1:length(P.SNRRange)
         SNRdb  = P.SNRRange(ss);
         SNRlin = 10^(SNRdb/10);
-        noise  = 1/sqrt(2*SeqLen*SNRlin) *snoise;
+        noise  = 1/sqrt(2*P.HadLen*SNRlin) *snoise;
         
         % Channel
         switch P.ChannelType
@@ -157,9 +154,9 @@ for ii = 1:P.NumberOfFrames
                 disp('Source Encoding not supported')
         end
         %Hadamard
-        y_reshape=reshape(desp_bits,RATE_BITS/6*RX,P.HamLen);
+        y_reshape=reshape(desp_bits,RATE_BITS/P.HadIn*RX,P.HadLen);
         [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
-        rxbits = reshape(de2bi(max(0,indx-1), 6), 1, 516); %TODO magick number + max(0, ..) WTF????
+        rxbits = reshape(de2bi(max(0,indx-1), P.HadIn), 1, 516); %TODO magick number + max(0, ..) WTF????
         
         % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
         % :S
