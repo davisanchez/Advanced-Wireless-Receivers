@@ -18,7 +18,7 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + 8)
+    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + 8);
     NumberOfChips  = NbTXBits*P.HadLen;
     
     HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
@@ -58,7 +58,7 @@ for ii = 1:P.NumberOfFrames
     encoded_bits = convEnc(bits_ind.');
     
     % Symbol repetition
-    encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits)); %TODO 384 faire une variable avec ca
+    encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     encoded_bits = encoded_bits(:);
     
     % Here comes the interleaver (TODO)
@@ -91,8 +91,7 @@ for ii = 1:P.NumberOfFrames
         case 'AWGN',
             himp = ones(P.RakeFingers,1);
         case 'Multipath',
-            himp = sqrt(1/2)* (randn(RX,P.ChannelLength) + 1i * randn(RX,P.ChannelLength));
-%             himp = (ones(RX,1) * sqrt(P.PDP)) .* himp;
+            himp = sqrt(1/2)* (randn(P.RakeFingers,P.ChannelLength) + 1i * randn(P.RakeFingers,P.ChannelLength));
         otherwise,
             disp('Channel not supported')
     end
@@ -123,9 +122,9 @@ for ii = 1:P.NumberOfFrames
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
             case 'Multipath'     
-                y = zeros(1,NumberOfChips+P.ChannelLength-1,RX);
-                for i = 1:RX
-                    y(1,:,i) = conv(mwaveform(1,:,i),himp(i,:)) + noise(1,:,i); 
+                y = zeros(P.RakeFingers,NumberOfChipsRX+P.RakeFingers,RX); %Normally add the users here!
+                for i = 1:P.RakeFingers
+                    y(i,i:NumberOfChipsRX+i-1,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
             otherwise,
                 disp('Channel not supported')
@@ -136,29 +135,15 @@ for ii = 1:P.NumberOfFrames
         switch P.ReceiverType
             case 'Rake',  
                 % Despreading
+                rxsymbols = zeros(P.RakeFingers, NbTXBits);
                 [~,ind] = maxk(himp,P.RakeFingers);
-                for(finger = 1:P.RakeFingers)
+                for finger = 1:P.RakeFingers
                     rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
-                                          reshape(y(ind(finger),ind(finger):ind(finger)-1+NumberOfChips,RX), ...
+                                          reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
                 end
-                desp_bits = (0 > real(rxsymbols(1,:))).'; %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                desp_bits = reshape(sum(rxsymbols,1) < 0,1,NbTXBits).'; 
                 
-%                 % Hadamard
-%                 for j=1:RX
-%                     y_rx=rxbits;%sign(real(y(:,:,j))); %TODO hard decision, good?
-% 
-%                     for i=1:P.ChannelLength    
-%                         %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
-%                         
-%                         
-%                         % TODO remove this???
-%                         %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
-%                         %rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
-%                     end
-%                     %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
-%                     %rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
-%                 end
             otherwise,
                 disp('Source Encoding not supported')
         end
@@ -181,13 +166,4 @@ for ii = 1:P.NumberOfFrames
 end
 
 BER = Results/(NumberOfBits*P.NumberOfFrames);
-end
-
-function seq = genbarker(len)
-    BarkerSeq = [+1 +1 +1 +1 +1 -1 -1 +1 +1 -1 +1 -1 +1];
-
-    factor = ceil(len/length(BarkerSeq));
-    b = repmat(BarkerSeq,1,factor);
-    b = BarkerSeq.'*ones(1,factor);
-    seq = b(1:len).';
 end

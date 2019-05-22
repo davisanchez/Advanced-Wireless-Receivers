@@ -1,4 +1,5 @@
-% Wireless Receivers II - Assignment 2:
+% Wireless Receivers Project:
+% Anael Buchegger, Tim Tuuva, David Sanchez
 %
 % Direct Sequence Spread Spectrum Simulation Framework
 %
@@ -17,11 +18,16 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = 24576;%P.NumberOfBits *P.Modulation*P.HadLen/P.HadIn*P.LongCodeLength*P.Rate;
-    % NumberOfChips  = P.HadLen * RATE_BITS/P.HadIn; % per Frame
-
-    PNSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
+    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + 8)
+    NumberOfChips  = NbTXBits*P.HadLen;
     
+    HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
+    
+    LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
+                               'Mask', P.SequenceMask, ...
+                               'InitialConditions', randi([0 1],1,42), ...
+                               'SamplesPerFrame', NbTXBits);
+    PNSequence = step(LongCode);
     
     % Channel
     switch P.ChannelType
@@ -37,7 +43,7 @@ Results = zeros(1,length(P.SNRRange));
 % Note that these are terminated, so they include the tail
 trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
-convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated');
+convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated', 'InputFormat','Hard');
 
 for ii = 1:P.NumberOfFrames
     
@@ -46,28 +52,19 @@ for ii = 1:P.NumberOfFrames
     bits = randi([0 1],1,NumberOfBits); % Random Data
     
     % TODO Add Frame Quality Indicator (bonus)
-    bits = [bits randi([0 1],1,P.Q_Ind)];
+    bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
     % TODO: Convolutional encoding
-    encoded_bits = step(convEnc,bits.');
-    %encoded_bits = convenc(bits,trellis);
-    % TODO taking only the first stream?? dunno we got 540 and 540/3=180
-    % which is 172+8 bits! No we take everything, we increase the rate
-    % conv_bits = conv_bits(1:NumberOfBits);
+    encoded_bits = convEnc(bits_ind.');
     
     % Symbol repetition
-    encoded_bits = repmat(encoded_bits, 1, 384/length(encoded_bits)); %TODO 384 faire une variable avec ca
+    encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     encoded_bits = encoded_bits(:);
     
     % Here comes the interleaver (TODO)
     
-    % Pulse Shape (PNSequence)
-    LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
-                               'Mask', P.SequenceMask, ...
-                               'InitialConditions', randi([0 1],1,42), ...
-                               'SamplesPerFrame', 384);
-    
-    PN_symbols = xor(step(LongCode), encoded_bits);
+    % Pulse Shape (PNSequence)    
+    PN_symbols = xor(PNSequence, encoded_bits);
 
     % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
@@ -83,19 +80,19 @@ for ii = 1:P.NumberOfFrames
     
     
     % TODO: Spreading with Hadamard
-    symbol_spread = PNSequence * symbols.';
+    symbol_spread = HadamSequence * symbols.';
     waveform = reshape(symbol_spread, 1, P.HadLen*length(encoded_bits));    
 
     
     % Channel
     switch P.ChannelType
         case 'ByPass',
-
+            himp = ones(P.RakeFingers,1);
         case 'AWGN',
             himp = ones(P.RakeFingers,1);
         case 'Multipath',
-            himp = sqrt(1/2)* ( randn(RX,P.ChannelLength) + 1i * randn(RX,P.ChannelLength) );
-%             himp = (ones(RX,1) * sqrt(P.PDP)) .* himp;
+            himp = sqrt(1/2)* ( randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength) );
+            h = himp(1)*ones(1,NumberOfChipsRX,P.RX);
         otherwise,
             disp('Channel not supported')
     end
@@ -105,7 +102,7 @@ for ii = 1:P.NumberOfFrames
     
     %%%
     % Simulation
-    snoise = ( randn(1,length(waveform),RX) + 1i* randn(1,length(waveform),RX) );
+    snoise = ( randn(1,NumberOfChipsRX,RX) + 1i* randn(1,NumberOfChipsRX,RX) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -116,65 +113,56 @@ for ii = 1:P.NumberOfFrames
         % Channel
         switch P.ChannelType
             case 'ByPass',
-                y = zeros(P.RakeFingers,length(waveform),RX); %Normally add the users here!
+                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)); 
                 end
             case 'AWGN',
-                y = zeros(P.RakeFingers,length(waveform),RX); %Normally add the users here!
+                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
-            case 'Multipath'     
-                y = zeros(1,NumberOfChips+P.ChannelLength-1,RX);
-                for i = 1:RX
-                    y(1,:,i) = conv(mwaveform(1,:,i),himp(i,:)) + noise(1,:,i); 
-                end
+            case 'Multipath',
+                y = conv(mwaveform,himp) + noise; %TODO did a modification here
+            end
             otherwise,
-                disp('Channel not supported')
+            disp('Channel not supported')
+            end
         end
         
  
         % Receiver
         switch P.ReceiverType
-            case 'Rake',  
+            case 'Rake1',  
                 % Despreading
                 [~,ind] = maxk(himp,P.RakeFingers);
                 for(finger = 1:P.RakeFingers)
-                    rxsymbols(finger,:) = conj(himp(ind(finger)))*PNSequence.'*...
-                                          reshape(y(ind(finger),1:NumberOfChips,RX), ...
+                    rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
+                                          reshape(y(finger,ind(finger):ind(finger)-1+NumberOfChips,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
                 end
-                desp_bits = (0 > real(rxsymbols(1,:))).'; %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
+                desp_bits = reshape(sum(rxsymbols,1) < 0,1,NbTXBits).'; %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
                 
-%                 % Hadamard
-%                 for j=1:RX
-%                     y_rx=rxbits;%sign(real(y(:,:,j))); %TODO hard decision, good?
-% 
-%                     for i=1:P.ChannelLength    
-%                         %TODO reshape(y_rx(i:i+NumberOfChips-1),SeqLen,NumberOfBits/RX); 
-%                         
-%                         
-%                         % TODO remove this???
-%                         %rxsymbols(i,:)=SpreadSequence(:,j).'*y_reshape;
-%                         %rxsymbols(i,:)=rxsymbols(i,:)*conj(himp(j,i));
-%                     end
-%                     %TODO: reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
-%                     %rxbits(j:RX:RX*RATE_BITS) = reshape(sum(rxsymbols,1) < 0,1,RATE_BITS);
-%                 end
+            case 'Rake',
+                rxsymbols = 0;
+                [val ind] = sort(abs(himp),'descend');
+                for i = ind(1:P.RakeFingers)
+                    rxsymbols = rxsymbols + conj(himp(i)) * HadamSequence.' * reshape(y(i,i:i+NumberOfChips-1, RX), P.HadLen, NumberOfChips/P.HadLen);
+                end
+                desp_bits = reshape(rxsymbols < 0,1,NbTXBits).';
+                
             otherwise,
                 disp('Source Encoding not supported')
         end
-        %Hadamard
-        y_reshape=reshape(desp_bits,RATE_BITS/P.HadIn*RX,P.HadLen);
-        [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
-        rxbits = reshape(de2bi(max(0,indx-1), P.HadIn), 1, 516); %TODO magick number + max(0, ..) WTF????
+        % UN-PN
+        unpn_bits = xor(PNSequence, desp_bits);
         
-        % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
-        % :S
-        % rxbits = step(convDec,rxbits.'); right now it doesnt work,
-        % problem of shape and size of array
-        rxbits = vitdec(rxbits,trellis,34,'trunc','hard');
+        
+        % TODO: Decoding Viterbi
+        rxbits = convDec(double(unpn_bits));
+        
+        % Remove the 8 bit encoding trail ????? TODO
+        rxbits = rxbits(1:end-P.Q_Ind-8).'; % TODO magick number
 
         % BER count
         errors =  sum(rxbits ~= bits);
