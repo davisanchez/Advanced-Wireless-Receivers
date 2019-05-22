@@ -18,14 +18,15 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = P.Rate*(P.NumberOfBits + P.Q_Ind + 8)*P.HadLen;
+    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + 8)
+    NumberOfChips  = NbTXBits*P.HadLen;
     
     HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
-                               'SamplesPerFrame', 384);
+                               'SamplesPerFrame', NbTXBits);
     PNSequence = step(LongCode);
     
     % Channel
@@ -61,7 +62,7 @@ for ii = 1:P.NumberOfFrames
     % conv_bits = conv_bits(1:NumberOfBits);
     
     % Symbol repetition
-    encoded_bits = repmat(encoded_bits, 1, 384/length(encoded_bits)); %TODO 384 faire une variable avec ca
+    encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits)); %TODO 384 faire une variable avec ca
     encoded_bits = encoded_bits(:);
     
     % Here comes the interleaver (TODO)
@@ -176,7 +177,7 @@ for ii = 1:P.NumberOfFrames
         rxbits = vitdec(unpn_bits,trellis,34,'trunc','hard');
         
         % Remove the 8 bit encoding trail ????? TODO
-        rxbits = rxbits(1:end-20).'; % TODO magick number
+        rxbits = rxbits(1:end-P.Q_Ind-8).'; % TODO magick number
 
         % BER count
         errors =  sum(rxbits ~= bits);
