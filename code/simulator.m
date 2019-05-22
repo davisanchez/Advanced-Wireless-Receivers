@@ -91,7 +91,7 @@ for ii = 1:P.NumberOfFrames
         case 'AWGN',
             himp = ones(P.RakeFingers,1);
         case 'Multipath',
-            himp = sqrt(1/2)* ( randn(RX,P.ChannelLength) + 1i * randn(RX,P.ChannelLength) );
+            himp = sqrt(1/2)* (randn(RX,P.ChannelLength) + 1i * randn(RX,P.ChannelLength));
 %             himp = (ones(RX,1) * sqrt(P.PDP)) .* himp;
         otherwise,
             disp('Channel not supported')
@@ -139,7 +139,7 @@ for ii = 1:P.NumberOfFrames
                 [~,ind] = maxk(himp,P.RakeFingers);
                 for(finger = 1:P.RakeFingers)
                     rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
-                                          reshape(y(ind(finger),1:NumberOfChips,RX), ...
+                                          reshape(y(ind(finger),ind(finger):ind(finger)-1+NumberOfChips,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
                 end
                 desp_bits = (0 > real(rxsymbols(1,:))).'; %TODO correct this%reshape(sum(rxsymbols,1) < 0,1,P.NumberOfSymbols);
