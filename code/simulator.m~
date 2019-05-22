@@ -20,13 +20,8 @@ function BER = simulator(P)
     NumberOfChips  = 24576;%P.NumberOfBits *P.Modulation*P.HadLen/P.HadIn*P.LongCodeLength*P.Rate;
     % NumberOfChips  = P.HadLen * RATE_BITS/P.HadIn; % per Frame
 
-    HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
+    PNSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
     
-    LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
-                               'Mask', P.SequenceMask, ...
-                               'InitialConditions', randi([0 1],1,42), ...
-                               'SamplesPerFrame', 384);
-    PNSequence = step(LongCode);
     
     % Channel
     switch P.ChannelType
@@ -66,8 +61,13 @@ for ii = 1:P.NumberOfFrames
     
     % Here comes the interleaver (TODO)
     
-    % Pulse Shape (PNSequence)    
-    PN_symbols = xor(PNSequence, encoded_bits);
+    % Pulse Shape (PNSequence)
+    LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
+                               'Mask', P.SequenceMask, ...
+                               'InitialConditions', randi([0 1],1,42), ...
+                               'SamplesPerFrame', 384);
+    
+    PN_symbols = xor(step(LongCode), encoded_bits);
 
     % Modulation : Modulated with the 64ary
     switch P.Modulation % Modulate Symbols
@@ -83,14 +83,14 @@ for ii = 1:P.NumberOfFrames
     
     
     % TODO: Spreading with Hadamard
-    symbol_spread = HadamSequence * symbols.';
+    symbol_spread = PNSequence * symbols.';
     waveform = reshape(symbol_spread, 1, P.HadLen*length(encoded_bits));    
 
     
     % Channel
     switch P.ChannelType
         case 'ByPass',
-            himp = ones(P.RakeFingers,1);
+
         case 'AWGN',
             himp = ones(P.RakeFingers,1);
         case 'Multipath',
@@ -141,7 +141,7 @@ for ii = 1:P.NumberOfFrames
                 % Despreading
                 [~,ind] = maxk(himp,P.RakeFingers);
                 for(finger = 1:P.RakeFingers)
-                    rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
+                    rxsymbols(finger,:) = conj(himp(ind(finger)))*PNSequence.'*...
                                           reshape(y(ind(finger),1:NumberOfChips,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
                 end
@@ -165,18 +165,16 @@ for ii = 1:P.NumberOfFrames
             otherwise,
                 disp('Source Encoding not supported')
         end
-        % UN-PN
-        unpn_bits = xor(PNSequence, desp_bits);
-        
+        %Hadamard
+        y_reshape=reshape(desp_bits,RATE_BITS/P.HadIn*RX,P.HadLen);
+        [~,indx]=ismember(y_reshape,HadamardMatrix,'rows');
+        rxbits = reshape(de2bi(max(0,indx-1), P.HadIn), 1, 516); %TODO magick number + max(0, ..) WTF????
         
         % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
         % :S
-        %rxbits = step(convDec,unpn_bits); % right now it doesnt work,
+        % rxbits = step(convDec,rxbits.'); right now it doesnt work,
         % problem of shape and size of array
-        rxbits = vitdec(unpn_bits,trellis,34,'trunc','hard');
-        
-        % Remove the 8 bit encoding trail ????? TODO
-        rxbits = rxbits(1:end-8).'; % TODO magick number
+        rxbits = vitdec(rxbits,trellis,34,'trunc','hard');
 
         % BER count
         errors =  sum(rxbits ~= bits);
