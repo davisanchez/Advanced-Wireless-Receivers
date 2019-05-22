@@ -43,7 +43,7 @@ Results = zeros(1,length(P.SNRRange));
 % Note that these are terminated, so they include the tail
 trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
-convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated');
+convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated', 'InputFormat','Hard');
 
 for ii = 1:P.NumberOfFrames
     
@@ -55,11 +55,7 @@ for ii = 1:P.NumberOfFrames
     bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
     % TODO: Convolutional encoding
-    encoded_bits = step(convEnc,bits_ind.');
-    %encoded_bits = convenc(bits,trellis);
-    % TODO taking only the first stream?? dunno we got 540 and 540/3=180
-    % which is 172+8 bits! No we take everything, we increase the rate
-    % conv_bits = conv_bits(1:NumberOfBits);
+    encoded_bits = convEnc(bits_ind.');
     
     % Symbol repetition
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits)); %TODO 384 faire une variable avec ca
@@ -170,11 +166,8 @@ for ii = 1:P.NumberOfFrames
         unpn_bits = xor(PNSequence, desp_bits);
         
         
-        % TODO: Decoding Viterbi, is that correct??? Dunno if we have to use it
-        % :S
-        %rxbits = step(convDec,unpn_bits); % right now it doesnt work,
-        % problem of shape and size of array
-        rxbits = vitdec(unpn_bits,trellis,34,'trunc','hard');
+        % TODO: Decoding Viterbi
+        rxbits = convDec(double(unpn_bits));
         
         % Remove the 8 bit encoding trail ????? TODO
         rxbits = rxbits(1:end-P.Q_Ind-8).'; % TODO magick number
