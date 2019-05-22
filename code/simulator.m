@@ -17,9 +17,8 @@ function BER = simulator(P)
     NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
     
     RATE_BITS = P.Rate * NumberOfBits;
-    NumberOfChips  = 24576;%P.NumberOfBits *P.Modulation*P.HadLen/P.HadIn*P.LongCodeLength*P.Rate;
-    % NumberOfChips  = P.HadLen * RATE_BITS/P.HadIn; % per Frame
-
+    NumberOfChips  = P.Rate*(P.NumberOfBits + P.Q_Ind + 8)*P.HadLen;
+    
     HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
@@ -51,10 +50,10 @@ for ii = 1:P.NumberOfFrames
     bits = randi([0 1],1,NumberOfBits); % Random Data
     
     % TODO Add Frame Quality Indicator (bonus)
-    bits = [bits randi([0 1],1,P.Q_Ind)];
+    bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
     % TODO: Convolutional encoding
-    encoded_bits = step(convEnc,bits.');
+    encoded_bits = step(convEnc,bits_ind.');
     %encoded_bits = convenc(bits,trellis);
     % TODO taking only the first stream?? dunno we got 540 and 540/3=180
     % which is 172+8 bits! No we take everything, we increase the rate
@@ -105,7 +104,7 @@ for ii = 1:P.NumberOfFrames
     
     %%%
     % Simulation
-    snoise = ( randn(1,length(waveform),RX) + 1i* randn(1,length(waveform),RX) );
+    snoise = ( randn(1,NumberOfChipsRX,RX) + 1i* randn(1,NumberOfChipsRX,RX) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -116,12 +115,12 @@ for ii = 1:P.NumberOfFrames
         % Channel
         switch P.ChannelType
             case 'ByPass',
-                y = zeros(P.RakeFingers,length(waveform),RX); %Normally add the users here!
+                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)); 
                 end
             case 'AWGN',
-                y = zeros(P.RakeFingers,length(waveform),RX); %Normally add the users here!
+                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
@@ -176,7 +175,7 @@ for ii = 1:P.NumberOfFrames
         rxbits = vitdec(unpn_bits,trellis,34,'trunc','hard');
         
         % Remove the 8 bit encoding trail ????? TODO
-        rxbits = rxbits(1:end-8).'; % TODO magick number
+        rxbits = rxbits(1:end-20).'; % TODO magick number
 
         % BER count
         errors =  sum(rxbits ~= bits);
