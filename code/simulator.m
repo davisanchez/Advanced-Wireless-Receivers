@@ -1,4 +1,5 @@
-% Wireless Receivers II - Assignment 2:
+% Wireless Receivers Project:
+% Anael Buchegger, Tim Tuuva, David Sanchez
 %
 % Direct Sequence Spread Spectrum Simulation Framework
 %
