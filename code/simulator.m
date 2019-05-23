@@ -92,6 +92,9 @@ for ii = 1:P.NumberOfFrames
             himp = ones(P.RakeFingers,1);
         case 'Multipath',
             himp = sqrt(1/2)* (randn(P.RakeFingers,P.ChannelLength) + 1i * randn(P.RakeFingers,P.ChannelLength));
+        case 'Fading',
+            himp = channel(RX,NumberOfChipsRX,1,P.CoherenceTime,1);
+        
         otherwise,
             disp('Channel not supported')
     end
@@ -125,6 +128,12 @@ for ii = 1:P.NumberOfFrames
                 y = zeros(P.RakeFingers,NumberOfChipsRX+P.RakeFingers,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
                     y(i,i:NumberOfChipsRX+i-1,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
+                end
+                
+            case 'Fading',
+                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
+                for i = 1:P.RakeFingers
+                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(i,:) + noise;
                 end
             otherwise,
                 disp('Channel not supported')
