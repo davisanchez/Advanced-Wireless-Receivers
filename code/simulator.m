@@ -17,8 +17,8 @@ function BER = simulator(P)
     %TODO magick number 3x172 -> 1/rate X Number of bits    
     NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
     
-    RATE_BITS = P.Rate * NumberOfBits;
-    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + 8);
+    %RATE_BITS = P.Rate * NumberOfBits;
+    NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
     HadamSequence     = HadamardMatrix(:,42);%genbarker(P.LongCodeLength); % -(2*step(GS)-1);
@@ -45,9 +45,9 @@ trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
 convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated', 'InputFormat','Hard');
 
-for ii = 1:P.NumberOfFrames
+for frame = 1:P.NumberOfFrames
     
-    ii
+    frame
 
     bits = randi([0 1],1,NumberOfBits); % Random Data
     
@@ -66,24 +66,13 @@ for ii = 1:P.NumberOfFrames
     % Pulse Shape (PNSequence)    
     PN_symbols = xor(PNSequence, encoded_bits);
 
-    % Modulation : Modulated with the 64ary
-    switch P.Modulation % Modulate Symbols
-        case 1 % BPSK
-            symbols = -(2*PN_symbols - 1);
-        case 2 % 64ary
-%             symbols = reshape(conv_bits,P.HadIn,length(conv_bits)/P.HadIn);
-%             had_index = bi2de(symbols.'); % Not sure...
-%             symbols = HadamardMatrix(had_index(:)+1,:);
-        otherwise
-            disp('Modulation not supported')
-    end
+    % Modulation : BPSK
+    symbols = -(2*PN_symbols - 1);
     
-    
-    % TODO: Spreading with Hadamard
+    % Spreading with Hadamard
     symbol_spread = HadamSequence * symbols.';
     waveform = reshape(symbol_spread, 1, P.HadLen*length(encoded_bits));    
-
-    
+ 
     % Channel
     switch P.ChannelType
         case 'ByPass',
@@ -93,7 +82,7 @@ for ii = 1:P.NumberOfFrames
         case 'Multipath',
             himp = sqrt(1/2)* (randn(P.RakeFingers,P.ChannelLength) + 1i * randn(P.RakeFingers,P.ChannelLength));
         case 'Fading',
-            himp = channel(RX,NumberOfChipsRX,1,P.CoherenceTime,1);
+            himp = channel(P.RakeFingers,NumberOfChipsRX,1,P.CoherenceTime,1);
         
         otherwise,
             disp('Channel not supported')
@@ -133,7 +122,7 @@ for ii = 1:P.NumberOfFrames
             case 'Fading',
                 y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.RakeFingers
-                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(i,:) + noise;
+                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(1,:,i) + noise;
                 end
             otherwise,
                 disp('Channel not supported')
@@ -145,11 +134,17 @@ for ii = 1:P.NumberOfFrames
             case 'Rake',  
                 % Despreading
                 rxsymbols = zeros(P.RakeFingers, NbTXBits);
-                [~,ind] = maxk(himp,P.RakeFingers);
+                [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.RakeFingers);
                 for finger = 1:P.RakeFingers
-                    rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
+                    if strcmp(P.ChannelType,'Multipath')
+                        rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
                                           reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
+                    else
+                        rxsymbols(finger,:) = conj(himp_mean(ind(finger)))*HadamSequence.'*...
+                                          reshape(y(ind(finger),:,RX), ...
+                                          P.HadLen, NumberOfChipsRX/P.HadLen);
+                    end
                 end
                 desp_bits = reshape(sum(rxsymbols,1) < 0,1,NbTXBits).'; 
                 
