@@ -76,11 +76,11 @@ for frame = 1:P.NumberOfFrames
     % Channel
     switch P.ChannelType
         case 'ByPass',
-            himp = ones(P.RakeFingers,1);
+            himp = ones(P.ChannelLength,1);
         case 'AWGN',
-            himp = ones(P.RakeFingers,1);
+            himp = ones(P.ChannelLength,1);
         case 'Multipath',
-            himp = sqrt(1/2)* (randn(P.RakeFingers,P.ChannelLength) + 1i * randn(P.RakeFingers,P.ChannelLength));
+            himp = sqrt(1/2)* (randn(P.ChannelLength, RX) + 1i * randn(P.ChannelLength, RX));
         case 'Fading',
             himp = channel(P.RakeFingers,NumberOfChipsRX,1,P.CoherenceTime,1);
         
@@ -88,12 +88,12 @@ for frame = 1:P.NumberOfFrames
             disp('Channel not supported')
     end
     
-    mwaveform = repmat(waveform,[P.RakeFingers 1 RX]); %WTF happens here ?
+    mwaveform = repmat(waveform,[P.ChannelLength 1 RX]); %WTF happens here ?
 
     
     %%%
     % Simulation
-    snoise = ( randn(1,NumberOfChipsRX,RX) + 1i* randn(1,NumberOfChipsRX,RX) );
+    snoise = ( randn(1,NumberOfChips,RX) + 1i* randn(1,NumberOfChips,RX) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -105,23 +105,23 @@ for frame = 1:P.NumberOfFrames
         switch P.ChannelType
             case 'ByPass',
                 y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.RakeFingers
+                for i = 1:P.ChannelLength
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)); 
                 end
             case 'AWGN',
                 y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.RakeFingers
+                for i = 1:P.ChannelLength
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
             case 'Multipath'     
-                y = zeros(P.RakeFingers,NumberOfChipsRX+P.RakeFingers,RX); %Normally add the users here!
-                for i = 1:P.RakeFingers
-                    y(i,i:NumberOfChipsRX+i-1,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
+                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
+                for i = 1:P.ChannelLength
+                    y(i,i:NumberOfChips+i-1,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
                 
             case 'Fading',
                 y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.RakeFingers
+                for i = 1:P.ChannelLength
                     y(i,:,RX) = mwaveform(i,:,RX) .* himp(1,:,i) + noise;
                 end
             otherwise,
@@ -133,10 +133,15 @@ for frame = 1:P.NumberOfFrames
         switch P.ReceiverType
             case 'Rake',  
                 % Despreading
-                rxsymbols = zeros(P.RakeFingers, NbTXBits);
-                [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.RakeFingers);
+                rxsymbols = zeros(P.ChannelLength, NbTXBits);
+                if strcmp(P.ChannelType,'Multipath')
+                    [~,ind] = maxk(himp,P.ChannelLength);
+                else
+                    [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.RakeFingers);
+                end
                 for finger = 1:P.RakeFingers
                     if strcmp(P.ChannelType,'Multipath')
+
                         rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
                                           reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
                                           P.HadLen, NumberOfChips/P.HadLen);
