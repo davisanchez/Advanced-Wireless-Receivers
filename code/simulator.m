@@ -82,7 +82,7 @@ for frame = 1:P.NumberOfFrames
         case 'Multipath',
             himp = sqrt(1/2)* (randn(P.ChannelLength, RX) + 1i * randn(P.ChannelLength, RX));
         case 'Fading',
-            himp = channel(P.RakeFingers,NumberOfChipsRX,1,P.CoherenceTime,1);
+            himp = channel(P.ChannelLength,NumberOfChipsRX,1,P.CoherenceTime,1);
         
         otherwise,
             disp('Channel not supported')
@@ -104,12 +104,12 @@ for frame = 1:P.NumberOfFrames
         % Channel
         switch P.ChannelType
             case 'ByPass',
-                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
+                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.ChannelLength
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)); 
                 end
             case 'AWGN',
-                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
+                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.ChannelLength
                     y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
                 end
@@ -120,9 +120,9 @@ for frame = 1:P.NumberOfFrames
                 end
                 
             case 'Fading',
-                y = zeros(P.RakeFingers,NumberOfChipsRX,RX); %Normally add the users here!
+                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.ChannelLength
-                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(1,:,i) + noise;
+                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(RX,:,i) + noise;
                 end
             otherwise,
                 disp('Channel not supported')
@@ -137,7 +137,7 @@ for frame = 1:P.NumberOfFrames
                 if strcmp(P.ChannelType,'Multipath')
                     [~,ind] = maxk(himp,P.ChannelLength);
                 else
-                    [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.RakeFingers);
+                    [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.ChannelLength);
                 end
                 for finger = 1:P.RakeFingers
                     if strcmp(P.ChannelType,'Multipath')
