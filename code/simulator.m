@@ -9,13 +9,13 @@
 
 function BER = simulator(P)
 
-    RX = P.CDMAUsers;
+    RX = P.RX_Users;
     
     % Generate the spreading sequences % Custom matrix here
-    HadamardMatrix = hadamard(P.HadLen);%/sqrt(P.HadLen);   TODO          
+    HadamardMatrix = hadamard(P.HadLen);    %TODO normalization      
     
-    %TODO magick number 3x172 -> 1/rate X Number of bits    
-    NumberOfBits   = P.NumberOfBits*P.Modulation*RX; % per Frame
+    % 
+    NumberOfBits   = P.NumberOfBits*P.Modulation; % per Frame
     
     %RATE_BITS = P.Rate * NumberOfBits;
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
@@ -51,10 +51,10 @@ for frame = 1:P.NumberOfFrames
 
     bits = randi([0 1],1,NumberOfBits); % Random Data
     
-    % TODO Add Frame Quality Indicator (bonus)
+    % Add Frame Quality Indicator (bonus)
     bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
-    % TODO: Convolutional encoding
+    % Convolutional encoding
     encoded_bits = convEnc(bits_ind.');
     
     % Symbol repetition
@@ -76,9 +76,9 @@ for frame = 1:P.NumberOfFrames
     % Channel
     switch P.ChannelType
         case 'ByPass',
-            himp = ones(P.ChannelLength,1);
+            himp = ones(P.ChannelLength,1,RX);
         case 'AWGN',
-            himp = ones(P.ChannelLength,1);
+            himp = ones(P.ChannelLength,1,RX);
         case 'Multipath',
             himp = sqrt(1/2)* (randn(P.ChannelLength, RX) + 1i * randn(P.ChannelLength, RX));
         case 'Fading',
@@ -105,13 +105,17 @@ for frame = 1:P.NumberOfFrames
         switch P.ChannelType
             case 'ByPass',
                 y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.ChannelLength
-                    y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)); 
+                for r = 1:RX
+                    for i = 1:P.ChannelLength
+                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r)); %TODO MIMO
+                    end
                 end
             case 'AWGN',
                 y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.ChannelLength
-                    y(i,:,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
+                for r = 1:RX
+                    for i = 1:P.ChannelLength
+                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r)) + noise(i,:,r);  %TODO MIMO
+                    end
                 end
             case 'Multipath'     
                 y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
@@ -133,25 +137,29 @@ for frame = 1:P.NumberOfFrames
         switch P.ReceiverType
             case 'Rake',  
                 % Despreading
-                rxsymbols = zeros(P.ChannelLength, NbTXBits);
-                if strcmp(P.ChannelType,'Multipath')
-                    [~,ind] = maxk(himp,P.ChannelLength);
-                else
-                    [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.ChannelLength);
-                end
-                for finger = 1:P.RakeFingers
-                    if strcmp(P.ChannelType,'Multipath')
-
-                        rxsymbols(finger,:) = conj(himp(ind(finger)))*HadamSequence.'*...
-                                          reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
-                                          P.HadLen, NumberOfChips/P.HadLen);
+                rxsymbols = zeros(P.ChannelLength, NbTXBits, RX);
+                
+                for r = 1:RX
+                    if ~strcmp(P.ChannelType,'Fading')
+                        [~,ind] = maxk(himp,P.ChannelLength);
                     else
-                        rxsymbols(finger,:) = conj(himp_mean(ind(finger)))*HadamSequence.'*...
-                                          reshape(y(ind(finger),:,RX), ...
-                                          P.HadLen, NumberOfChipsRX/P.HadLen);
+                        [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.ChannelLength);
+                    end
+                    for finger = 1:P.RakeFingers
+                        if ~strcmp(P.ChannelType,'Fading')
+                            
+                            rxsymbols(finger,:,r) = conj(himp(ind(finger)))*HadamSequence.'*...
+                                reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
+                                P.HadLen, NumberOfChips/P.HadLen);
+                        else
+                            rxsymbols(finger,:,r) = conj(himp_mean(ind(finger)))*HadamSequence.'*...
+                                reshape(y(ind(finger),:,RX), ...
+                                P.HadLen, NumberOfChipsRX/P.HadLen);
+                        end
                     end
                 end
-                desp_bits = reshape(sum(rxsymbols,1) < 0,1,NbTXBits).'; 
+                % TODO is that ok??
+                desp_bits = reshape(sum(rxsymbols,1) < 0,NbTXBits,RX); 
                 
             otherwise,
                 disp('Source Encoding not supported')
@@ -160,10 +168,10 @@ for frame = 1:P.NumberOfFrames
         unpn_bits = xor(PNSequence, desp_bits);
         
         
-        % TODO: Decoding Viterbi
+        % Decoding Viterbi
         rxbits = convDec(double(unpn_bits));
         
-        % Remove the 8 bit encoding trail ????? TODO
+        % Remove the 8 bit encoding trail
         rxbits = rxbits(1:end-P.Q_Ind-8).'; % TODO magick number
 
         % BER count
