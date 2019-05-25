@@ -15,12 +15,18 @@ P.NumberOfBits     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbo
 P.Q_Ind = 12;
 
 P.AccessType = 'CDMA';
-P.CDMAUsers     = 5;
+P.CDMAUsers     = 1; %TODO
+P.RXperUser     = 2;
+P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX antennas?
+                     % right now We can't have a different number, we have
+                     % to decide which anteanns signals we just keep or mix
+                     % in a good manner the information
+
 
 P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 
-P.ChannelType   = 'Multipath'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
-P.ChannelLength = 4;
+P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelLength = 1;
 P.CoherenceTime = 19200/3; % A third of a second
 
 P.HadLen = 64; % Length of Hadamard Sequence
@@ -30,7 +36,7 @@ P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
-P.RakeFingers = 3; 
+P.RakeFingers = 1; 
 if (P.RakeFingers > P.ChannelLength)
     error('Fingers has to be smaller or equal to channels !')
 end
