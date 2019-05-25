@@ -27,7 +27,11 @@ function BER = simulator(P)
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
-    PNSequence = step(LongCode);
+    % TODO MIMO ??? is that ok?
+    PNSequence = zeros(RX, NbTXBits);
+    for r = 1:RX
+        PNSequence(r, :) = step(LongCode);
+    end
     
     % Channel
     switch P.ChannelType
@@ -49,17 +53,24 @@ for frame = 1:P.NumberOfFrames
     
     frame
 
-    bits = randi([0 1],1,NumberOfBits); % Random Data
+    bits = randi([0 1],RX,NumberOfBits); % Random Data
+    
+    % TODO debug MIMO
+    %bits = randi([0 1],1,NumberOfBits); % Random Data
+    %bits = [bits; bits];
     
     % Add Frame Quality Indicator (bonus)
-    bits_ind = [bits randi([0 1],1,P.Q_Ind)];
+    bits_ind = [bits randi([0 1],RX,P.Q_Ind)];
     
     % Convolutional encoding
-    encoded_bits = convEnc(bits_ind.');
+    encoded_bits = zeros(RX, NbTXBits);
+    for r=1:RX
+        encoded_bits(r,:) = convEnc(bits_ind(r,:).'); % TODO doesnt give the same encoding signal, why??? IMPORTANT
+    end
     
     % Symbol repetition
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
-    encoded_bits = encoded_bits(:);
+    %encoded_bits = encoded_bits(:); TODO useless??
     
     % Here comes the interleaver (TODO)
     
@@ -70,8 +81,11 @@ for frame = 1:P.NumberOfFrames
     symbols = -(2*PN_symbols - 1);
     
     % Spreading with Hadamard
-    symbol_spread = HadamSequence * symbols.';
-    waveform = reshape(symbol_spread, 1, P.HadLen*length(encoded_bits));    
+    symbol_spread = zeros(RX, P.HadLen, NbTXBits);
+    for r = 1:RX
+        symbol_spread(r,:,:) = HadamSequence * symbols(r,:); % TODO MIMO, what shall we do? Different Hadamard sequence?
+    end
+    waveform = reshape(symbol_spread, RX, P.HadLen*NbTXBits);    
  
     % Channel
     switch P.ChannelType
@@ -143,23 +157,23 @@ for frame = 1:P.NumberOfFrames
                     if ~strcmp(P.ChannelType,'Fading')
                         [~,ind] = maxk(himp,P.ChannelLength);
                     else
-                        [himp_mean,ind] = maxk(mean(himp(RX,:,:)),P.ChannelLength);
+                        [himp_mean,ind] = maxk(mean(himp(r,:,:)),P.ChannelLength);
                     end
                     for finger = 1:P.RakeFingers
                         if ~strcmp(P.ChannelType,'Fading')
                             
                             rxsymbols(finger,:,r) = conj(himp(ind(finger)))*HadamSequence.'*...
-                                reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,RX), ...
+                                reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,r), ...
                                 P.HadLen, NumberOfChips/P.HadLen);
                         else
                             rxsymbols(finger,:,r) = conj(himp_mean(ind(finger)))*HadamSequence.'*...
-                                reshape(y(ind(finger),:,RX), ...
+                                reshape(y(ind(finger),:,r), ...
                                 P.HadLen, NumberOfChipsRX/P.HadLen);
                         end
                     end
                 end
-                % TODO is that ok??
-                desp_bits = reshape(sum(rxsymbols,1) < 0,NbTXBits,RX); 
+                % TODO diversity or High rate possibility???
+                desp_bits = reshape(sum(rxsymbols,1) < 0,NbTXBits,RX).'; 
                 
             otherwise,
                 disp('Source Encoding not supported')
@@ -169,13 +183,16 @@ for frame = 1:P.NumberOfFrames
         
         
         % Decoding Viterbi
-        rxbits = convDec(double(unpn_bits));
+        decoded_bits = zeros(RX, NbTXBits/2);
+        for r = 1:RX
+            decoded_bits(r,:) = convDec(double(unpn_bits(r,:)).').'; % TODO, beurk beurk no??
+        end
         
         % Remove the 8 bit encoding trail
-        rxbits = rxbits(1:end-P.Q_Ind-8).'; % TODO magick number
+        rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
 
         % BER count
-        errors =  sum(rxbits ~= bits);
+        errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
         
         Results(ss) = Results(ss) + errors;
         
