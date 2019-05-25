@@ -14,7 +14,7 @@ function BER = simulator(P)
     NUser = P.CDMAUsers;
     
     % Generate the spreading sequences % Custom matrix here
-    HadamardMatrix = hadamard(P.HadLen);    %TODO normalization      
+    HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    %TODO normalization      
     
     % 
     NumberOfBits   = P.NumberOfBits*P.Modulation; % per Frame
@@ -58,8 +58,8 @@ for frame = 1:P.NumberOfFrames
     bits = randi([0 1],TX,NumberOfBits); % Random Data
     
     % TODO debug MIMO USE THIS TO DEBUG WITH RX = 2 !!
-    bits = randi([0 1],1,NumberOfBits); % Random Data
-    bits = [bits; bits];
+    %bits = randi([0 1],1,NumberOfBits); % Random Data
+    %bits = [bits; bits];
     
     % Add Frame Quality Indicator (bonus)
     bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
@@ -125,7 +125,7 @@ for frame = 1:P.NumberOfFrames
         
         % Channel
         % y -> (Users, Antenna, h_Channel, Data) 
-        y = zeros(RX,P.ChannelLength,NumberOfChips); %Normally add the users here!
+        y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
         switch P.ChannelType
             case 'ByPass',
                 for r = 1:RX
@@ -139,7 +139,8 @@ for frame = 1:P.NumberOfFrames
                             % In real life we can't separate the data as a
                             % row of a given matrix XP tuff life :-/
                             signal = squeeze(mwaveform(t,i,:));
-                            y(r,i,:) = squeeze(y(r,i,:)) + squeeze(conv(signal,himp(r,t,i,:)));
+                            y(r,i,:) = squeeze(y(r,i,:)) + ...
+                                       squeeze(conv(signal,himp(r,t,i,:)));
                         end
                     end
                 end
@@ -148,15 +149,21 @@ for frame = 1:P.NumberOfFrames
                     for t = 1:TX
                         for i = 1:P.ChannelLength
                             signal = squeeze(mwaveform(t,i,:));
-                            y(r,i,:) = squeeze(y(r,i,:)) + squeeze(conv(signal,himp(r,t,i,:))) + squeeze(noise(r,t,i,:));
+                            y(r,i,:) = squeeze(y(r,i,:)) + ...
+                                       squeeze(conv(signal,himp(r,t,i,:))) + ...
+                                       squeeze(noise(r,t,i,:));
                         end
                     end
                 end
             case 'Multipath'
                 for r = 1:RX
-                    for i = 1:P.ChannelLength
-                        signal = reshape(mwaveform(r,i,:),1,NumberOfChips);
-                        y(r,i,i:i+NumberOfChips-1) = reshape(conv(signal,himp(r,i,:)), 1, 1,NumberOfChips) + noise(r,i,:);
+                    for t = 1:TX
+                        for i = 1:P.ChannelLength
+                            signal = squeeze(mwaveform(r,i,:));
+                            y(r,i,i:i+NumberOfChips-1) = squeeze(y(r,i,i:i+NumberOfChips-1)) + ...
+                                                         squeeze(conv(signal,himp(r,t,i,:))) + ...
+                                                         squeeze(noise(r,t,i,:));
+                        end
                     end
                 end
             case 'Fading',
@@ -172,22 +179,26 @@ for frame = 1:P.NumberOfFrames
         switch P.ReceiverType
             case 'Rake',  
                 % Despreading
-                rxsymbols = zeros(RX,P.ChannelLength, NbTXBits);
+                rxsymbols = zeros(RX,P.RakeFingers,P.ChannelLength*NbTXBits); % TODO diversity or High rate possibility???
+
                 
                 for r = 1:RX
                     if ~strcmp(P.ChannelType,'Fading')
-                        [~,ind] = maxk(himp(r,:,:),P.ChannelLength);
+                        [~,ind] = maxk(himp(r,:,:,:),P.ChannelLength,3);
                     else
                         [himp_mean,ind] = maxk(mean(himp(r,:,:)),P.ChannelLength);
                     end
                     for finger = 1:P.RakeFingers
                         if ~strcmp(P.ChannelType,'Fading')
                             
-                            rxsymbols(r,finger,:) = conj(himp(r,ind(finger),:))*HadamSequence.'*...
-                                reshape(y(r,ind(finger),ind(finger):ind(finger)+NumberOfChips-1), ...
-                                P.HadLen, NumberOfChips/P.HadLen);
+                            rx_channel = squeeze(conj(himp(r,ind(finger),:)));
+                            rx_despread = HadamSequence.'*reshape(...
+                                                          y(r,ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
+                                                          P.HadLen, NumberOfChips/P.HadLen);
+
+                            rxsymbols(r,finger,:) = reshape(rx_channel * rx_despread, 1, P.ChannelLength*NbTXBits);
                         else
-                            rxsymbols(r,finger,:) = conj(himp_mean(r,ind(finger),:))*HadamSequence.'*...
+                            rxsymbols(r,finger,:) = squeeze(conj(himp_mean(r,ind(finger),:)))*HadamSequence.'*...
                                 reshape(y(r,ind(finger),:), ...
                                 P.HadLen, NumberOfChipsRX/P.HadLen);
                         end
@@ -196,7 +207,9 @@ for frame = 1:P.NumberOfFrames
                 % TODO diversity or High rate possibility???
                 desc_bits = zeros(RX,NbTXBits);
                 for r = 1:RX
-                    desc_bits(r,:) = reshape(sum(rxsymbols(r,:,:),2) < 0,1,NbTXBits).'; 
+                    % THIS IS AN EXAMPLE OF DIVERSITY ( I guess... ) TODO
+                    % TODO IMPORTANT HERE, the sum is doing the diversity
+                    desc_bits(r,:) = sum(reshape(sum(rxsymbols(r,:,:),2) < 0,P.ChannelLength,NbTXBits),1)/P.ChannelLength; 
                 end
                 
             otherwise,
