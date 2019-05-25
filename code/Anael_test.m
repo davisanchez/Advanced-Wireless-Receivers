@@ -6,7 +6,7 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all; %close all;
+clc; clear all; close all;
 
 % Parameters
 P.ReceiverType  = 'Rake';
@@ -15,12 +15,12 @@ P.NumberOfBits     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbo
 P.Q_Ind = 12;
 
 P.AccessType = 'CDMA';
-P.CDMAUsers     = 1;
+P.CDMAUsers     = 5;
 
 P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 
 P.ChannelType   = 'Multipath'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
-P.ChannelLength = 3;
+P.ChannelLength = 4;
 P.CoherenceTime = 19200/3; % A third of a second
 
 P.HadLen = 64; % Length of Hadamard Sequence
@@ -30,7 +30,10 @@ P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
-P.RakeFingers = 2; 
+P.RakeFingers = 3; 
+if (P.RakeFingers > P.ChannelLength)
+    error('Fingers has to be smaller or equal to channels !')
+end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 

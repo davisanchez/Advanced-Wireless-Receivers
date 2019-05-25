@@ -9,7 +9,7 @@
 
 function BER = simulator(P)
 
-    RX = P.RX_Users;
+    RX = P.CDMAUsers;
     
     % Generate the spreading sequences % Custom matrix here
     HadamardMatrix = hadamard(P.HadLen);    %TODO normalization      
@@ -28,9 +28,9 @@ function BER = simulator(P)
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
     % TODO MIMO ??? is that ok?
-    PNSequence = zeros(RX, NbTXBits);
+    PNSequence = zeros(NbTXBits,RX);
     for r = 1:RX
-        PNSequence(r, :) = step(LongCode);
+        PNSequence(:,r) = step(LongCode);
     end
     
     % Channel
@@ -53,24 +53,23 @@ for frame = 1:P.NumberOfFrames
     
     frame
 
-    bits = randi([0 1],RX,NumberOfBits); % Random Data
+    bits = randi([0 1],NumberOfBits, RX); % Random Data
     
-    % TODO debug MIMO
-    %bits = randi([0 1],1,NumberOfBits); % Random Data
-    %bits = [bits; bits];
+    % TODO debug MIMO USE THIS TO DEBUG WITH RX = 2 !!
+    %bits = randi([0 1],NumberOfBits,1); % Random Data
+    %bits = [bits bits];
     
     % Add Frame Quality Indicator (bonus)
-    bits_ind = [bits randi([0 1],RX,P.Q_Ind)];
+    bits_ind = [bits; randi([0 1],P.Q_Ind, RX)];
     
     % Convolutional encoding
-    encoded_bits = zeros(RX, NbTXBits);
+    encoded_bits = zeros(NbTXBits, RX);
     for r=1:RX
-        encoded_bits(r,:) = convEnc(bits_ind(r,:).'); % TODO doesnt give the same encoding signal, why??? IMPORTANT
+        encoded_bits(:,r) = convEnc(bits_ind(:,r)); % TODO doesnt give the same encoding signal, why??? IMPORTANT
     end
     
     % Symbol repetition
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
-    %encoded_bits = encoded_bits(:); TODO useless??
     
     % Here comes the interleaver (TODO)
     
@@ -81,20 +80,20 @@ for frame = 1:P.NumberOfFrames
     symbols = -(2*PN_symbols - 1);
     
     % Spreading with Hadamard
-    symbol_spread = zeros(RX, P.HadLen, NbTXBits);
+    symbol_spread = zeros(P.HadLen, NbTXBits, RX);
     for r = 1:RX
-        symbol_spread(r,:,:) = HadamSequence * symbols(r,:); % TODO MIMO, what shall we do? Different Hadamard sequence?
+        symbol_spread(:,:,r) = HadamSequence * symbols(:,r).'; % TODO MIMO, what shall we do? Different Hadamard sequence?
     end
-    waveform = reshape(symbol_spread, RX, P.HadLen*NbTXBits);    
+    waveform = reshape(symbol_spread, 1, P.HadLen*NbTXBits, RX);    
  
     % Channel
     switch P.ChannelType
         case 'ByPass',
-            himp = ones(P.ChannelLength,1,RX);
+            himp = ones(P.ChannelLength,1, RX);
         case 'AWGN',
             himp = ones(P.ChannelLength,1,RX);
         case 'Multipath',
-            himp = sqrt(1/2)* (randn(P.ChannelLength, RX) + 1i * randn(P.ChannelLength, RX));
+            himp = sqrt(1/2)* (randn(P.ChannelLength,1, RX) + 1i * randn(P.ChannelLength,1, RX));
         case 'Fading',
             himp = channel(P.ChannelLength,NumberOfChipsRX,1,P.CoherenceTime,1);
         
@@ -102,12 +101,12 @@ for frame = 1:P.NumberOfFrames
             disp('Channel not supported')
     end
     
-    mwaveform = repmat(waveform,[P.ChannelLength 1 RX]); %WTF happens here ?
+    mwaveform = repmat(waveform,[P.ChannelLength 1 1]); %WTF happens here ?
 
     
     %%%
     % Simulation
-    snoise = ( randn(1,NumberOfChips,RX) + 1i* randn(1,NumberOfChips,RX) );
+    snoise = ( randn(P.ChannelLength,NumberOfChips, RX) + 1i* randn(P.ChannelLength,NumberOfChips,RX) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -116,31 +115,29 @@ for frame = 1:P.NumberOfFrames
         noise  = 1/sqrt(2*P.HadLen*SNRlin) *snoise;
         
         % Channel
+        y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
         switch P.ChannelType
             case 'ByPass',
-                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for r = 1:RX
                     for i = 1:P.ChannelLength
-                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r)); %TODO MIMO
+                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r));
                     end
                 end
             case 'AWGN',
-                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for r = 1:RX
                     for i = 1:P.ChannelLength
-                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r)) + noise(i,:,r);  %TODO MIMO
+                        y(i,:,r) = conv(mwaveform(i,:,r),himp(i,:,r)) + noise(i,:,r);
                     end
                 end
-            case 'Multipath'     
-                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
-                for i = 1:P.ChannelLength
-                    y(i,i:NumberOfChips+i-1,RX) = conv(mwaveform(i,:,RX),himp(i,:)) + noise; 
+            case 'Multipath'
+                for r = 1:RX
+                    for i = 1:P.ChannelLength
+                        y(i,i:NumberOfChips+i-1,r) = conv(mwaveform(i,:,r),himp(i,:,r)) + noise(i,:,r);
+                    end
                 end
-                
             case 'Fading',
-                y = zeros(P.ChannelLength,NumberOfChipsRX,RX); %Normally add the users here!
                 for i = 1:P.ChannelLength
-                    y(i,:,RX) = mwaveform(i,:,RX) .* himp(RX,:,i) + noise;
+                    y(i,:,RrX) = mwaveform(i,:,r) .* himp(i,:,r) + noise;
                 end
             otherwise,
                 disp('Channel not supported')
@@ -155,25 +152,28 @@ for frame = 1:P.NumberOfFrames
                 
                 for r = 1:RX
                     if ~strcmp(P.ChannelType,'Fading')
-                        [~,ind] = maxk(himp,P.ChannelLength);
+                        [~,ind] = maxk(himp(:,:,r),P.ChannelLength);
                     else
-                        [himp_mean,ind] = maxk(mean(himp(r,:,:)),P.ChannelLength);
+                        [himp_mean,ind] = maxk(mean(himp(:,:,r)),P.ChannelLength);
                     end
                     for finger = 1:P.RakeFingers
                         if ~strcmp(P.ChannelType,'Fading')
                             
-                            rxsymbols(finger,:,r) = conj(himp(ind(finger)))*HadamSequence.'*...
+                            rxsymbols(finger,:,r) = conj(himp(ind(finger),:,r))*HadamSequence.'*...
                                 reshape(y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1,r), ...
                                 P.HadLen, NumberOfChips/P.HadLen);
                         else
-                            rxsymbols(finger,:,r) = conj(himp_mean(ind(finger)))*HadamSequence.'*...
+                            rxsymbols(finger,:,r) = conj(himp_mean(ind(finger),:,r))*HadamSequence.'*...
                                 reshape(y(ind(finger),:,r), ...
                                 P.HadLen, NumberOfChipsRX/P.HadLen);
                         end
                     end
                 end
                 % TODO diversity or High rate possibility???
-                desp_bits = reshape(sum(rxsymbols,1) < 0,NbTXBits,RX).'; 
+                desp_bits = zeros(NbTXBits, RX);
+                for r = 1:RX
+                    desp_bits(:,r) = reshape(sum(rxsymbols(:,:,r),1) < 0,NbTXBits,1).'; 
+                end
                 
             otherwise,
                 disp('Source Encoding not supported')
@@ -183,13 +183,13 @@ for frame = 1:P.NumberOfFrames
         
         
         % Decoding Viterbi
-        decoded_bits = zeros(RX, NbTXBits/2);
+        decoded_bits = zeros(NbTXBits/2, RX);
         for r = 1:RX
-            decoded_bits(r,:) = convDec(double(unpn_bits(r,:)).').'; % TODO, beurk beurk no??
+            decoded_bits(:,r) = convDec(double(unpn_bits(:,r))).'; % TODO, beurk beurk no??
         end
         
         % Remove the 8 bit encoding trail
-        rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
+        rxbits = decoded_bits(1:end-P.Q_Ind-8,:); % TODO magick number
 
         % BER count
         errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
@@ -199,5 +199,5 @@ for frame = 1:P.NumberOfFrames
     end
 end
 
-BER = Results/(NumberOfBits*P.NumberOfFrames);
+BER = Results/(NumberOfBits*P.NumberOfFrames*RX); %TODO added RX here seems logic
 end
