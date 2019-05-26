@@ -74,19 +74,12 @@ for frame = 1:P.NumberOfFrames
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
     % Here comes the interleaver (TODO)
-    encoded_bits=encoded_bits.';
-    encoded_bits(:,1)=matintrlv(encoded_bits(:,1),32,12);
-    encoded_bits(:,2)=matintrlv(encoded_bits(:,2),32,12);
-    encoded_bits=encoded_bits.';
+    
     
     % Pulse Shape (PNSequence)
-    
     PN_symbols = zeros(TX, NbTXBits);
-    %user loop
-    for k=1:NUser
-        for t=1:TX
-            PN_symbols(t,:) = xor(PNSequence(k,:), encoded_bits(t,:)); % TODO add user loop here
-        end
+    for t=1:TX
+        PN_symbols(t,:) = xor(PNSequence(NUser,:), encoded_bits(t,:)); % TODO add user loop here
     end
 
     % Modulation : BPSK

@@ -25,7 +25,7 @@ P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX a
 
 P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 
-P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelType   = 'ByPass'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
 P.ChannelLength = 1;
 P.CoherenceTime = 19200/3; % A third of a second
 
