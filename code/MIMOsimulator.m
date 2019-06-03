@@ -7,7 +7,7 @@
 % EPFL
 
 
-function BER = simulator(P)
+function BER = MIMOsimulator(P)
 
     RX = P.RXperUser;
     TX = P.TXperUser;

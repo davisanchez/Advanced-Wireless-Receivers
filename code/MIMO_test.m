@@ -9,7 +9,6 @@
 clc; clear all; close all;
 
 % Parameters
-%P.ReceiverType  = 'Rake';
 P.NumberOfFrames      = 5;
 P.NumberOfBits     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
 P.Q_Ind = 12;
@@ -47,14 +46,18 @@ end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
-
 P.SNRRange = -50:5:0; % SNR Range to simulate in dB
 
 % P.ReceiverType  = 'Rake'; % Only one type for the project
 
-BER = simulator(P);
+BER = MIMOsimulator(P);
 
-simlab = sprintf('%s - Length: %d - Users: %d' ,P.ChannelType,P.ChannelLength,P.CDMAUsers);
+if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
+    simlab = sprintf('%s - Paths: %d - Fingers : %d - Users: %d' ,...
+        P.ChannelType,P.ChannelLength, P.RakeFingers,P.CDMAUsers);
+else
+    simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
+end
 
 figure;
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
