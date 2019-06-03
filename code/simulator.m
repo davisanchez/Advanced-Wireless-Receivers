@@ -28,8 +28,8 @@ function BER = simulator(P)
                                'SamplesPerFrame', NbTXBits);
                            
     % TODO MIMO ??? is that ok?
-    PNSequence = zeros(NUser,NbTXBits); % SHOULD BE CDMA USERS related no??
-    for n = 1:NUser %each user has a PN
+    PNSequence = zeros(NUsers,NbTXBits); % SHOULD BE CDMA USERS related no??
+    for n = 1:NUsers %each user has a PN
         PNSequence(n,:) = step(LongCode);
     end
     
@@ -71,17 +71,17 @@ for frame = 1:P.NumberOfFrames
     % Symbol repetition
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
-    % Here comes the interleaver (TODO)
-    encoded_bits=encoded_bits.';
-    encoded_bits(:,1)=matintrlv(encoded_bits(:,1),32,12);
-    encoded_bits(:,2)=matintrlv(encoded_bits(:,2),32,12);
-    encoded_bits=encoded_bits.';
+    % Here comes the interleaver (TODO) Also need de-interleaver !
+%     encoded_bits=encoded_bits.';
+%     encoded_bits(:,1)=matintrlv(encoded_bits(:,1),32,12);
+%     encoded_bits(:,2)=matintrlv(encoded_bits(:,2),32,12);
+%     encoded_bits=encoded_bits.';
     
     % Pulse Shape (PNSequence)
     
     PN_symbols = zeros(TX, NbTXBits);
     %user loop
-    for k=1:NUser
+    for k=1:NUsers
         for t=1:TX
             PN_symbols(t,:) = xor(PNSequence(k,:), encoded_bits(t,:)); % TODO add user loop here
         end
@@ -96,13 +96,13 @@ for frame = 1:P.NumberOfFrames
         symbol_spread(t,:,:) = HadamSequence * symbols(t,:); % TODO MIMO, what shall we do? Different Hadamard sequence?
     end
     
-    waveform = reshape(symbol_spread,TX,P.HadLen*NbTXBits);   % Only for TX right ? 
+    waveform = reshape(symbol_spread,TX,1,P.HadLen*NbTXBits);   % Only for TX right ? 
  
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Channel
     switch P.ChannelType
         case {'ByPass','AWGN'}
-            himp = ones(RX,TX);
+            himp = ones(RX,TX,P.ChannelLength,1);
         case 'Multipath',
             himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength,1) + 1i * randn(RX,TX,P.ChannelLength,1));
         case 'Fading',
@@ -111,21 +111,14 @@ for frame = 1:P.NumberOfFrames
             disp('Channel not supported')
     end
 
+    % Duplicate <-> Diversity?? Along the Channels, should it be along
+    % Antennas?? TODO TODO IMPORTANT
+    mwaveform = repmat(waveform,[1 P.ChannelLength 1]);  
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Simulation
-    
-    switch P.ChannelType
-        case {'AWGN','ByPass'}
-            snoise = (randn(RX,TX,NumberOfChips) + ...
-                      1i* randn(RX,TX,NumberOfChips) );
-        case {'Multipath','Fading'}
-            % Duplicate <-> Diversity?? Along the Channels, should it be along
-            % Antennas?? TODO TODO IMPORTANT
-            snoise = (randn(RX,TX,P.ChannelLength,NumberOfChips) + ...
-                      1i* randn(RX,TX,P.ChannelLength,NumberOfChips) );    
-            mwaveform = repmat(waveform,[1 P.ChannelLength 1]);
-    end
+    % Simulation 
+    snoise = (randn(RX,TX,P.ChannelLength,NumberOfChips) + ...
+                      1i* randn(RX,TX,P.ChannelLength,NumberOfChips) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -133,37 +126,40 @@ for frame = 1:P.NumberOfFrames
         SNRlin = 10^(SNRdb/10);
         noise  = 1/sqrt(2*P.HadLen*SNRlin) *snoise;
         
+        % y -> (Users, Antenna, h_Channel, Data) 
+        y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
+        
         % Channel
         switch P.ChannelType
             case 'ByPass',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
                 for r = 1:RX
                     for t = 1:TX
-                        % This is needed because Matlab cannot handle conv
-                        % with matrix like structure even though it is a
-                        % vector
-                        % We sum all the contribution from every TX
-                        % antennas !!! and Also sum from every user 
-                        % In real life we can't separate the data as a
-                        % row of a given matrix XP tuff life :-/
-                        signal = squeeze(waveform(t,:));
-                        y(r,:) = squeeze(y(r,:)) + ...
-                                   squeeze(conv(signal,himp(r,t,:)));
+                        for i = 1:P.ChannelLength
+                            % This is needed because Matlab cannot handle conv
+                            % with matrix like structure even though it is a
+                            % vector
+                            % We sum all the contribution from every TX
+                            % antennas !!! and Also sum from every user 
+                            % In real life we can't separate the data as a
+                            % row of a given matrix XP tuff life :-/
+                            signal = squeeze(waveform(t,i,:));
+                            y(r,i,:) = squeeze(y(r,i,:)) + ...
+                                       squeeze(conv(signal,himp(r,t,i,:)));
+                        end
                     end
                 end
             case 'AWGN',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
                 for r = 1:RX
                     for t = 1:TX
-                        signal = waveform(t,:);
-                        y(r,:) = y(r,:)+ signal*himp(r,t) + squeeze(noise(r,t,:)).';
+                        for i = 1:P.ChannelLength
+                            signal = squeeze(waveform(t,i,:));
+                            y(r,i,:) = squeeze(y(r,i,:))+...
+                                squeeze(conv(signal,himp(r,t,i,:))) + ...
+                                squeeze(noise(r,t,i,:));
+                        end
                     end
                 end
             case 'Multipath'
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
                 for r = 1:RX
                     for t = 1:TX
                         for i = 1:P.ChannelLength
@@ -175,8 +171,6 @@ for frame = 1:P.NumberOfFrames
                     end
                 end
             case 'Fading',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
                 for i = 1:P.ChannelLength
                     y(i,:,RrX) = mwaveform(i,:,r) .* himp(i,:,r) + noise;
                 end
@@ -186,22 +180,8 @@ for frame = 1:P.NumberOfFrames
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Receiver
-        switch P.ChannelType % Rake receiver makes no sense in this case
-            case {'AWGN','ByPass'}
-                % Despreading
-                rxsymbols = zeros(RX,NbTXBits); % TODO diversity or High rate possibility???
-                desc_bits = zeros(RX,NbTXBits);
-                    
-                for r = 1:RX
-                    rx_channel = conj(himp(r,:)); % Not quite sure what to do with himp here
-                    rxsymbols(r,:) = HadamSequence.'*reshape(y(r,:), P.HadLen, NbTXBits);
-                    
-                    % THIS IS AN EXAMPLE OF DIVERSITY ( I guess... ) TODO
-                    % TODO IMPORTANT HERE, the sum is doing the diversity
-                    desc_bits(r,:) = sum(reshape(sum(rxsymbols(r,:),2) < 0,NbTXBits),1); 
-                end
-            
-            case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
+        switch P.ReceiverType
+            case 'Rake'
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,P.ChannelLength*NbTXBits); % TODO diversity or High rate possibility???
                 
@@ -265,5 +245,5 @@ for frame = 1:P.NumberOfFrames
     end
 end
 
-BER = Results/(NumberOfBits*P.NumberOfFrames*RX); %TODO added RX here seems logic
+BER = Results/(P.NumberOfBits*P.NumberOfFrames*RX); %TODO added RX here seems logic
 end

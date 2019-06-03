@@ -25,7 +25,7 @@ P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX a
 
 P.Modulation    = 1;        % 1: BPSK, 2: 64ary
 
-P.ChannelType   = 'ByPass'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
 P.ChannelLength = 1;
 P.CoherenceTime = 19200/3; % A third of a second
 
@@ -37,11 +37,9 @@ P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
 
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.RakeFingers = 1; 
-    if (P.RakeFingers > P.ChannelLength)
-        error('Fingers has to be smaller or equal to channels !')
-    end
+P.RakeFingers = 1; 
+if (P.RakeFingers > P.ChannelLength)
+    error('Fingers has to be smaller or equal to channels !')
 end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
@@ -49,7 +47,7 @@ P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
 P.SNRRange = -50:5:0; % SNR Range to simulate in dB
 
-% P.ReceiverType  = 'Rake'; % Only one type for the project
+P.ReceiverType  = 'Rake'; % Only one type for the project
 
 BER = simulator(P);
 
