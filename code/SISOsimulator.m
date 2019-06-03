@@ -1,37 +1,28 @@
 % Wireless Receivers Project:
 % Anael Buchegger, Tim Tuuva, David Sanchez
 %
-% Direct Sequence Spread Spectrum Simulation Framework
+% SISO, 1 User only (simplest case)
 %
 % Telecommunications Circuits Laboratory
 % EPFL
 
 
-function BER = simulator(P)
-
-    RX = P.RXperUser;
-    TX = P.TXperUser;
-    NUsers = P.CDMAUsers;
+function BER = SISOsimulator(P)
     
-    % Generate the spreading sequences (One per antenna ?)
+    % Generate the spreading sequence
     HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    %TODO normalization      
     
-    %RATE_BITS = P.Rate * NumberOfBits;
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
-    HadamSequence     = HadamardMatrix(:,42);
+    HadamSequence     = HadamardMatrix(:,42); %42 but could pick anything
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
                            
-    % TODO MIMO ??? is that ok?
-    PNSequence = zeros(NUsers,NbTXBits); % SHOULD BE CDMA USERS related no??
-    for n = 1:NUsers
-        PNSequence(n,:) = step(LongCode);
-    end
+    PNSequence = step(LongCode);
     
     % Channel
     switch P.ChannelType
@@ -53,20 +44,13 @@ for frame = 1:P.NumberOfFrames
     
     frame
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    bits = randi([0 1],TX,P.NumberOfBits); % Random Data
-    
-    % TODO debug MIMO USE THIS TO DEBUG WITH RX = 2 !!
-    %bits = randi([0 1],1,NumberOfBits); % Random Data
-    %bits = [bits; bits];
+    bits = randi([0 1],P.NumberOfBits); % Random Data
     
     % Add Frame Quality Indicator (bonus)
     bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
     
     % Convolutional encoding
-    encoded_bits = zeros(TX,NbTXBits);
-    for t=1:TX
-        encoded_bits(t,:) = convEnc(bits_ind(t,:).').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
-    end
+    encoded_bits = convEnc(bits_ind.').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
     
     % Symbol repetition
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
