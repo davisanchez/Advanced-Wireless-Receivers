@@ -22,11 +22,11 @@ function BER = SISOsimulator(P)
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
                            
-    PNSequence = step(LongCode);
+    PNSequence = step(LongCode).';
     
     % Channel
     switch P.ChannelType
-        case 'Multipath'
+        case {'Multipath', 'Fading'}
             NumberOfChipsRX = NumberOfChips+P.ChannelLength-1;
         otherwise
             NumberOfChipsRX = NumberOfChips;
@@ -44,45 +44,35 @@ for frame = 1:P.NumberOfFrames
     
     frame
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    bits = randi([0 1],P.NumberOfBits); % Random Data
+    bits = randi([0 1],1,P.NumberOfBits); % Random Data
     
-    % Add Frame Quality Indicator (bonus)
-    bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
+    % Add Frame Quality Indicator (bonus) Random as our data is random
+    bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
     % Convolutional encoding
     encoded_bits = convEnc(bits_ind.').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
     
-    % Symbol repetition
-    encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
-    
     % Here comes the interleaver (TODO)
     
     % Pulse Shape (PNSequence)
-    PN_symbols = zeros(TX, NbTXBits);
-    for t=1:TX
-        PN_symbols(t,:) = xor(PNSequence(NUsers,:), encoded_bits(t,:)); % TODO add user loop here
-    end
+    PN_symbols = xor(PNSequence, encoded_bits);
 
     % Modulation : BPSK
     symbols = -(2*PN_symbols - 1);
     
     % Spreading with Hadamard
-    symbol_spread = zeros(TX,P.HadLen, NbTXBits);
-    for t = 1:TX
-        symbol_spread(t,:,:) = HadamSequence * symbols(t,:); % TODO MIMO, what shall we do? Different Hadamard sequence?
-    end
-    
-    waveform = reshape(symbol_spread,TX,P.HadLen*NbTXBits);   % Only for TX right ? 
+    symbol_spread = HadamSequence * symbols;    
+    waveform = reshape(symbol_spread,1,P.HadLen*NbTXBits);
  
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Channel
     switch P.ChannelType
         case {'ByPass','AWGN'}
-            himp = ones(RX,TX);
+            himp = 1;
         case 'Multipath',
-            himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength,1) + 1i * randn(RX,TX,P.ChannelLength,1));
+            himp = sqrt(1/2)* (randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength));
         case 'Fading',
-            himp = channel(P.ChannelLength,NumberOfChipsRX,1,P.CoherenceTime,1); %TODO MIMO add a TX channel?           
+            himp = channel(P.ChannelLength,NumberOfChips,1,P.CoherenceTime,1);           
         otherwise,
             disp('Channel not supported')
     end
@@ -93,70 +83,37 @@ for frame = 1:P.NumberOfFrames
     
     switch P.ChannelType
         case {'AWGN','ByPass'}
-            snoise = (randn(RX,TX,NumberOfChips) + ...
-                      1i* randn(RX,TX,NumberOfChips) );
+            snoise = randn(1,NumberOfChips) + 1i* randn(1,NumberOfChips) ;
+            
         case {'Multipath','Fading'}
-            % Duplicate <-> Diversity?? Along the Channels, should it be along
-            % Antennas?? TODO TODO IMPORTANT
-            snoise = (randn(RX,TX,P.ChannelLength,NumberOfChips) + ...
-                      1i* randn(RX,TX,P.ChannelLength,NumberOfChips) );    
-            mwaveform = repmat(waveform,[1 P.ChannelLength 1]);
+            snoise = randn(P.ChannelLength,NumberOfChips) + ...
+                      1i* randn(P.ChannelLength,NumberOfChips);    
+            mwaveform = repmat(waveform,[P.ChannelLength 1]);
     end
     
     % SNR Range
-    for ss = 1:length(P.SNRRange)
-        SNRdb  = P.SNRRange(ss);
+    for snr = 1:length(P.SNRRange)
+        SNRdb  = P.SNRRange(snr);
         SNRlin = 10^(SNRdb/10);
         noise  = 1/sqrt(2*P.HadLen*SNRlin) *snoise;
         
         % Channel
         switch P.ChannelType
-            case 'ByPass',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
-                for r = 1:RX
-                    for t = 1:TX
-                        % This is needed because Matlab cannot handle conv
-                        % with matrix like structure even though it is a
-                        % vector
-                        % We sum all the contribution from every TX
-                        % antennas !!! and Also sum from every user 
-                        % In real life we can't separate the data as a
-                        % row of a given matrix XP tuff life :-/
-                        signal = squeeze(waveform(t,:));
-                        y(r,:) = squeeze(y(r,:)) + ...
-                                   squeeze(conv(signal,himp(r,t,:)));
-                    end
-                end
-            case 'AWGN',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
-                for r = 1:RX
-                    for t = 1:TX
-                        signal = waveform(t,:);
-                        y(r,:) = y(r,:)+ signal*himp(r,t) + squeeze(noise(r,t,:)).';
-                    end
-                end
+            case 'ByPass'
+                y = waveform * himp;                
+            case 'AWGN'
+                y = waveform * himp + noise;              
             case 'Multipath'
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
-                for r = 1:RX
-                    for t = 1:TX
-                        for i = 1:P.ChannelLength
-                            signal = squeeze(mwaveform(r,i,:));
-                            y(r,i,i:i+NumberOfChips-1) = squeeze(y(r,i,i:i+NumberOfChips-1)) + ...
-                                                         squeeze(conv(signal,himp(r,t,i,:))) + ...
-                                                         squeeze(noise(r,t,i,:));
-                        end
-                    end
-                end
-            case 'Fading',
-                % y -> (Users, Antenna, h_Channel, Data) 
-                y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
+                y = zeros(P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
                 for i = 1:P.ChannelLength
-                    y(i,:,RrX) = mwaveform(i,:,r) .* himp(i,:,r) + noise;
+                    y(i,i:i+NumberOfChips-1) = conv(mwaveform(i,:),himp(i)) + noise(i,:);
+                end               
+            case 'Fading'
+                y = zeros(P.ChannelLength,NumberOfChipsRX);
+                for i = 1:P.ChannelLength
+                    y(i,i:i+NumberOfChips-1) = mwaveform(i,:) .* himp(1,:,i) + noise(i,:);
                 end
-            otherwise,
+            otherwise
                 disp('Channel not supported')
         end
         
@@ -165,81 +122,68 @@ for frame = 1:P.NumberOfFrames
         switch P.ChannelType % Rake receiver makes no sense in this case
             case {'AWGN','ByPass'}
                 % Despreading
-                rxsymbols = zeros(RX,NbTXBits); % TODO diversity or High rate possibility???
-                desc_bits = zeros(RX,NbTXBits);
+                rxsymbols = conj(himp).*HadamSequence.'*reshape(y, P.HadLen, NbTXBits);
                     
-                for r = 1:RX
-                    rx_channel = conj(himp(r,:)); % Not quite sure what to do with himp here
-                    rxsymbols(r,:) = HadamSequence.'*reshape(y(r,:), P.HadLen, NbTXBits);
-                    
-                    % THIS IS AN EXAMPLE OF DIVERSITY ( I guess... ) TODO
-                    % TODO IMPORTANT HERE, the sum is doing the diversity
-                    desc_bits(r,:) = sum(reshape(sum(rxsymbols(r,:),2) < 0,NbTXBits),1); 
-                end
-            
-            case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
-                % Despreading
-                rxsymbols = zeros(RX,P.RakeFingers,P.ChannelLength*NbTXBits); % TODO diversity or High rate possibility???
+                desp_bits = rxsymbols < 0; 
+
+            case {'Multipath','Fading'} % Rake receiver
+                rxsymbols = zeros(P.RakeFingers, NbTXBits);
                 
-                for r = 1:RX
-                    % Order the best fingers
-                    if ~strcmp(P.ChannelType,'Fading')
-                        [~,ind] = maxk(himp(r,:,:,:),P.ChannelLength,3);
+                % Order the best fingers
+                if strcmp(P.ChannelType,'Multipath')
+                    [~,ind] = maxk(himp,P.RakeFingers);
+                else
+                    % Select the best fingers based on mean channel
+                    % (estimated ?)
+                    [~,ind] = maxk(mean(himp(1,:,:),2),P.RakeFingers);
+                end        
+
+                for finger = 1:P.RakeFingers
+                    if strcmp(P.ChannelType,'Multipath')
+                        % Channel would be estimated for each path
+                        rx_channel = conj(himp(ind(finger)));
+                        % Despreading
+                        rx_despread = HadamSequence.'*reshape(...
+                                                      y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
+                                                      P.HadLen, NbTXBits);
+                        % Neutralizing channel effect
+                        rxsymbols(finger,:) = rx_channel * rx_despread;
                     else
-                        [himp_mean,ind] = maxk(mean(himp(r,:,:)),P.ChannelLength);
-                    end        
-
-                    for finger = 1:P.RakeFingers
-                        if ~strcmp(P.ChannelType,'Fading')
-                            
-                            rx_channel = squeeze(conj(himp(r,ind(finger),:)));
-                            rx_despread = HadamSequence.'*reshape(...
-                                                          y(r,ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
-                                                          P.HadLen, NumberOfChips/P.HadLen);
-
-                            rxsymbols(r,finger,:) = reshape(rx_channel * rx_despread, 1, P.ChannelLength*NbTXBits);
-                        else
-                            rxsymbols(r,finger,:) = squeeze(conj(himp_mean(r,ind(finger),:)))*HadamSequence.'*...
-                                reshape(y(r,ind(finger),:), ...
-                                P.HadLen, NumberOfChipsRX/P.HadLen);
-                        end
+                        % Channel would be estimated for each path, and
+                        % followed during transmission
+                        rx_channel = conj(himp(1,:,ind(finger)));
+                        % Despreading and neutralizing channel effect
+                        rxsymbols(finger,:) = HadamSequence.'*reshape(rx_channel .*...
+                                                      y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
+                                                      P.HadLen, NbTXBits);
                     end
                 end
-                % TODO diversity or High rate possibility???
-                desc_bits = zeros(RX,NbTXBits);
-                for r = 1:RX
-                    % THIS IS AN EXAMPLE OF DIVERSITY ( I guess... ) TODO
-                    % TODO IMPORTANT HERE, the sum is doing the diversity
-                    desc_bits(r,:) = sum(reshape(sum(rxsymbols(r,:,:),2) < 0,P.ChannelLength,NbTXBits),1)/P.ChannelLength; 
-                end
+
+                % Summing over all fingers to get some diversity
+                desp_bits = sum(reshape(sum(rxsymbols,1) < 0,1,NbTXBits),1); 
                 
             otherwise,
                 disp('Source Encoding not supported')
         end
         % UN-PN
-        unPN_symbols = zeros(RX, NbTXBits);
-        for r=1:RX
-            unPN_symbols(r,:) = xor(PNSequence(NUsers,:), desc_bits(r,:)); % TODO add user loop here
-        end
-        
+        unPN_symbols = xor(PNSequence, desp_bits);
         
         % Decoding Viterbi
-        decoded_bits = zeros(RX,NbTXBits/2);
-        for r = 1:RX
-            decoded_bits(r,:) = convDec(double(unPN_symbols(r,:)).').'; % TODO, beurk beurk no??
-        end
+        decoded_bits = convDec(double(unPN_symbols).').'; % TODO, beurk beurk no??
         
-        % Remove the 8 bit encoding trail
-        rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
+        % Remove the bit encoding trail
+        rxbits = decoded_bits(:,1:end-P.Q_Ind-(P.K-1)); 
+        
+        % Here comes the de-interleaver (TODO)
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count
-        errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
+        errors =  sum(sum(rxbits ~= bits));
         
-        Results(ss) = Results(ss) + errors;
+        Results(snr) = Results(snr) + errors;
         
     end
 end
 
-BER = Results/(NumberOfBits*P.NumberOfFrames*RX); %TODO added RX here seems logic
+BER = Results/(P.NumberOfBits*P.NumberOfFrames);
 end

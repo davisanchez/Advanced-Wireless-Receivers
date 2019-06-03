@@ -7,22 +7,19 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all; close all;
+clc; clear all; %close all;
 
 % Parameters
-P.NumberOfFrames   = 5;
+P.NumberOfFrames   = 50;
 P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
-P.AccessType = 'CDMA';
+P.ChannelType   = 'Fading'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
 
-P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.ChannelLength = 1; 
-end
-if strcmp(P.ChannelType, 'Fading')
-    P.CoherenceTime = 19200/3; % A third of a second 
-end
+% Only applies for fading and multipath
+P.ChannelLength = 3; 
+% Only applies for fading
+P.CoherenceTime = 19200/1000; % A thousandth of a second 
 
 P.HadLen = 64; % Length of Hadamard Sequence
 
@@ -32,21 +29,23 @@ P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
 
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.RakeFingers = 1; 
-    if (P.RakeFingers > P.ChannelLength)
-        error('Fingers has to be smaller or equal to channels !')
-    end
+% Only applies for fading and multipath
+P.RakeFingers = 2; 
+if (P.RakeFingers > P.ChannelLength)
+    error('Fingers has to be smaller or equal to channels !')
 end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
-
 
 P.SNRRange = -50:5:0; % SNR Range to simulate in dB
 
 BER = SISOsimulator(P);
 
-simlab = sprintf('%s - Length: %d - Users: %d' ,P.ChannelType,P.ChannelLength,P.CDMAUsers);
+if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
+    simlab = sprintf('%s - Paths: %d - Fingers : %d' ,P.ChannelType,P.ChannelLength, P.RakeFingers);
+else
+    simlab = sprintf('%s' ,P.ChannelType);
+end
 
 figure;
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
