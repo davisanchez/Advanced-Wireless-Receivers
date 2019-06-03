@@ -16,6 +16,9 @@ function BER = simulator(P)
     % Generate the spreading sequences (One per antenna ?)
     HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    %TODO normalization      
     
+    % 
+    NumberOfBits   = P.NumberOfBits*P.Modulation; % per Frame
+    
     %RATE_BITS = P.Rate * NumberOfBits;
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
@@ -26,7 +29,6 @@ function BER = simulator(P)
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
-                           
     % TODO MIMO ??? is that ok?
     PNSequence = zeros(NUsers,NbTXBits); % SHOULD BE CDMA USERS related no??
     for n = 1:NUsers %each user has a PN
@@ -106,19 +108,20 @@ for frame = 1:P.NumberOfFrames
         case 'Multipath',
             himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength,1) + 1i * randn(RX,TX,P.ChannelLength,1));
         case 'Fading',
-            himp = channel(P.ChannelLength,NumberOfChipsRX,1,P.CoherenceTime,1); %TODO MIMO add a TX channel?           
+            himp = channel(P.ChannelLength,NumberOfChipsRX,1,P.CoherenceTime,1); %TODO MIMO add a TX channel?
+        
         otherwise,
             disp('Channel not supported')
     end
-
+    
     % Duplicate <-> Diversity?? Along the Channels, should it be along
     % Antennas?? TODO TODO IMPORTANT
-    mwaveform = repmat(waveform,[1 P.ChannelLength 1]);  
+    mwaveform = repmat(waveform,[1 P.ChannelLength 1]);
+
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Simulation 
-    snoise = (randn(RX,TX,P.ChannelLength,NumberOfChips) + ...
-                      1i* randn(RX,TX,P.ChannelLength,NumberOfChips) );
+    % Simulation
+    snoise = ( randn(RX,TX,P.ChannelLength,NumberOfChips) + 1i* randn(RX,TX,P.ChannelLength,NumberOfChips) );
     
     % SNR Range
     for ss = 1:length(P.SNRRange)
@@ -126,10 +129,9 @@ for frame = 1:P.NumberOfFrames
         SNRlin = 10^(SNRdb/10);
         noise  = 1/sqrt(2*P.HadLen*SNRlin) *snoise;
         
+        % Channel
         % y -> (Users, Antenna, h_Channel, Data) 
         y = zeros(RX,P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
-        
-        % Channel
         switch P.ChannelType
             case 'ByPass',
                 for r = 1:RX
@@ -142,7 +144,7 @@ for frame = 1:P.NumberOfFrames
                             % antennas !!! and Also sum from every user 
                             % In real life we can't separate the data as a
                             % row of a given matrix XP tuff life :-/
-                            signal = squeeze(waveform(t,i,:));
+                            signal = squeeze(mwaveform(t,i,:));
                             y(r,i,:) = squeeze(y(r,i,:)) + ...
                                        squeeze(conv(signal,himp(r,t,i,:)));
                         end
@@ -152,10 +154,10 @@ for frame = 1:P.NumberOfFrames
                 for r = 1:RX
                     for t = 1:TX
                         for i = 1:P.ChannelLength
-                            signal = squeeze(waveform(t,i,:));
-                            y(r,i,:) = squeeze(y(r,i,:))+...
-                                squeeze(conv(signal,himp(r,t,i,:))) + ...
-                                squeeze(noise(r,t,i,:));
+                            signal = squeeze(mwaveform(t,i,:));
+                            y(r,i,:) = squeeze(y(r,i,:)) + ...
+                                       squeeze(conv(signal,himp(r,t,i,:))) + ...
+                                       squeeze(noise(r,t,i,:));
                         end
                     end
                 end
@@ -181,18 +183,17 @@ for frame = 1:P.NumberOfFrames
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Receiver
         switch P.ReceiverType
-            case 'Rake'
+            case 'Rake',  
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,P.ChannelLength*NbTXBits); % TODO diversity or High rate possibility???
+
                 
                 for r = 1:RX
-                    % Order the best fingers
                     if ~strcmp(P.ChannelType,'Fading')
                         [~,ind] = maxk(himp(r,:,:,:),P.ChannelLength,3);
                     else
                         [himp_mean,ind] = maxk(mean(himp(r,:,:)),P.ChannelLength);
-                    end        
-
+                    end
                     for finger = 1:P.RakeFingers
                         if ~strcmp(P.ChannelType,'Fading')
                             
