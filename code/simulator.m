@@ -28,8 +28,8 @@ function BER = simulator(P)
                                'SamplesPerFrame', NbTXBits);
                            
     % TODO MIMO ??? is that ok?
-    PNSequence = zeros(NUsers,NbTXBits); % SHOULD BE CDMA USERS related no??
-    for n = 1:NUsers
+    PNSequence = zeros(NUser,NbTXBits); % SHOULD BE CDMA USERS related no??
+    for n = 1:NUser %each user has a PN
         PNSequence(n,:) = step(LongCode);
     end
     
@@ -72,11 +72,19 @@ for frame = 1:P.NumberOfFrames
     encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
     % Here comes the interleaver (TODO)
+    encoded_bits=encoded_bits.';
+    encoded_bits(:,1)=matintrlv(encoded_bits(:,1),32,12);
+    encoded_bits(:,2)=matintrlv(encoded_bits(:,2),32,12);
+    encoded_bits=encoded_bits.';
     
     % Pulse Shape (PNSequence)
+    
     PN_symbols = zeros(TX, NbTXBits);
-    for t=1:TX
-        PN_symbols(t,:) = xor(PNSequence(NUsers,:), encoded_bits(t,:)); % TODO add user loop here
+    %user loop
+    for k=1:NUser
+        for t=1:TX
+            PN_symbols(t,:) = xor(PNSequence(k,:), encoded_bits(t,:)); % TODO add user loop here
+        end
     end
 
     % Modulation : BPSK

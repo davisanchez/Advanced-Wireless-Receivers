@@ -1,2 +1,5 @@
 # ignore generated matlab files
 *.asv
+*.m~
+
+.DS_Store

@@ -22,13 +22,12 @@ P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX a
                      % to decide which anteanns signals we just keep or mix
                      % in a good manner the information
 
-P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.ChannelLength = 1; 
-end
-if strcmp(P.ChannelType, 'Fading')
-    P.CoherenceTime = 19200/3; % A third of a second 
-end
+
+P.Modulation    = 1;        % 1: BPSK, 2: 64ary
+
+P.ChannelType   = 'ByPass'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelLength = 1;
+P.CoherenceTime = 19200/3; % A third of a second
 
 P.HadLen = 64; % Length of Hadamard Sequence
 
