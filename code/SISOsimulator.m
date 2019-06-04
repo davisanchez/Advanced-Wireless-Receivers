@@ -71,8 +71,13 @@ for frame = 1:P.NumberOfFrames
             himp = 1;
         case 'Multipath',
             himp = sqrt(1/2)* (randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength));
+            himp = himp/sqrt(sum(abs(himp).^2)); % Normalization
         case 'Fading',
-            himp = channel(P.ChannelLength,NumberOfChips,1,P.CoherenceTime,1);           
+            % Channel impulse for each path
+            himp = sqrt(1/2)* (randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength));
+            himp = himp/sqrt(sum(abs(himp).^2)); % Normalization
+            % Channel variation for each bit
+            h = channel(P.ChannelLength,NumberOfChips,1,P.CoherenceTime,1);           
         otherwise,
             disp('Channel not supported')
     end
@@ -86,9 +91,9 @@ for frame = 1:P.NumberOfFrames
             snoise = randn(1,NumberOfChips) + 1i* randn(1,NumberOfChips) ;
             
         case {'Multipath','Fading'}
-            snoise = randn(P.ChannelLength,NumberOfChips) + ...
-                      1i* randn(P.ChannelLength,NumberOfChips);    
-            mwaveform = repmat(waveform,[P.ChannelLength 1]);
+            snoise = randn(1,NumberOfChipsRX) + ...
+                      1i* randn(1,NumberOfChipsRX);    
+             
     end
     
     % SNR Range
@@ -104,15 +109,15 @@ for frame = 1:P.NumberOfFrames
             case 'AWGN'
                 y = waveform * himp + noise;              
             case 'Multipath'
-                y = zeros(P.ChannelLength,NumberOfChipsRX); %Normally add the users here!
-                for i = 1:P.ChannelLength
-                    y(i,i:i+NumberOfChips-1) = conv(mwaveform(i,:),himp(i)) + noise(i,:);
-                end               
+                y = conv(waveform,himp) + noise;           
             case 'Fading'
-                y = zeros(P.ChannelLength,NumberOfChipsRX);
+                y = zeros(1,NumberOfChipsRX);
+                y_conv = himp.'*waveform;
                 for i = 1:P.ChannelLength
-                    y(i,i:i+NumberOfChips-1) = mwaveform(i,:) .* himp(1,:,i) + noise(i,:);
-                end
+                    y_channel = y_conv(i,:) .* h(1,:,i);
+                    y(i:i+NumberOfChips-1) = y(i:i+NumberOfChips-1) + y_channel;          
+                end      
+                y = y + noise;
             otherwise
                 disp('Channel not supported')
         end
@@ -130,33 +135,28 @@ for frame = 1:P.NumberOfFrames
                 rxsymbols = zeros(P.RakeFingers, NbTXBits);
                 
                 % Order the best fingers
-                if strcmp(P.ChannelType,'Multipath')
-                    [~,ind] = maxk(himp,P.RakeFingers);
-                else
-                    % Select the best fingers based on mean channel
-                    % (estimated ?)
-                    [~,ind] = maxk(mean(himp(1,:,:),2),P.RakeFingers);
-                end        
+                [~,ind] = maxk(himp,P.RakeFingers);
 
                 for finger = 1:P.RakeFingers
+                    % Channel would be estimated for each path
+                    himp_conj = conj(himp(ind(finger)));
+                    
                     if strcmp(P.ChannelType,'Multipath')
-                        % Channel would be estimated for each path
-                        rx_channel = conj(himp(ind(finger)));
                         % Despreading
                         rx_despread = HadamSequence.'*reshape(...
-                                                      y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
+                                                      y(ind(finger):ind(finger)+NumberOfChips-1),...
                                                       P.HadLen, NbTXBits);
-                        % Neutralizing channel effect
-                        rxsymbols(finger,:) = rx_channel * rx_despread;
                     else
-                        % Channel would be estimated for each path, and
-                        % followed during transmission
-                        rx_channel = conj(himp(1,:,ind(finger)));
+                        % Channel effect would be followed during transmission
+                        h_conj = conj(h(1,:,ind(finger)));
                         % Despreading and neutralizing channel effect
-                        rxsymbols(finger,:) = HadamSequence.'*reshape(rx_channel .*...
-                                                      y(ind(finger),ind(finger):ind(finger)+NumberOfChips-1),...
+                        rx_despread = HadamSequence.'*reshape(h_conj .*...
+                                                      y(ind(finger):ind(finger)+NumberOfChips-1),...
                                                       P.HadLen, NbTXBits);
                     end
+                    
+                    % Neutralizing global channel effect
+                    rxsymbols(finger,:) = himp_conj * rx_despread;
                 end
 
                 % Summing over all fingers to get some diversity

@@ -14,10 +14,16 @@ P.NumberOfFrames   = 50;
 P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
-P.ChannelType   = 'Fading'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelType   = 'Multipath'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
 
 % Only applies for fading and multipath
 P.ChannelLength = 3; 
+
+P.RakeFingers = 3; 
+if (P.RakeFingers > P.ChannelLength)
+    error('Fingers has to be smaller or equal to channels !')
+end
+
 % Only applies for fading
 P.CoherenceTime = 19200/1000; % A thousandth of a second 
 
@@ -28,12 +34,6 @@ P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
-
-% Only applies for fading and multipath
-P.RakeFingers = 2; 
-if (P.RakeFingers > P.ChannelLength)
-    error('Fingers has to be smaller or equal to channels !')
-end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
