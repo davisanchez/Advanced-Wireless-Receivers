@@ -163,11 +163,14 @@ for frame = 1:P.NumberOfFrames
             case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                desp_bits = zeros(RX,NbTXBits);
+                desp_bits_all = zeros(RX+TX,NbTXBits);
+                desp_bits = zeros(TX,NbTXBits);
                 
                 % Separation between antennas ? How to get himp ?
+                i = 1;
                 for r = 1:RX
                     for t = 1:TX
+                        
                         % Order the best fingers
                         [~,ind] = maxk(himp(r,t,:),P.RakeFingers);
                         
@@ -183,13 +186,14 @@ for frame = 1:P.NumberOfFrames
                             % Neutralizing global channel effect
                             rxsymbols(r,finger,:) = himp_conj * rx_despread;
                         end
-                         
+                        % Summing over all fingers to get some diversity
+                        desp_bits_all(i,:) = sum(rxsymbols(r,:,:),2);  
+                        i = i + 1;
                     end
-                    % Summing over all fingers to get some diversity
-                    desp_bits(r,:) = sum(rxsymbols(r,:,:),2) < 0;
                 end
-                % Summing for RX
-
+                % Summing for TX
+                desp_bits(1,:) = (desp_bits_all(1,:)+desp_bits_all(3,:)) < 0;
+                desp_bits(2,:) = (desp_bits_all(2,:)+desp_bits_all(4,:)) < 0;
 %                 else
 %                     rxsymbols(r,finger,:) = squeeze(conj(himp_mean(r,ind(finger),:)))*HadamSequence.'*...
 %                         reshape(y(r,ind(finger),:), ...
