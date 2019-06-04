@@ -52,6 +52,9 @@ for frame = 1:P.NumberOfFrames
     % Convolutional encoding
     encoded_bits = convEnc(bits_ind.').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
     
+    % Symbol repetition
+    %encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
+    
     % Here comes the interleaver (TODO)
     
     % Pulse Shape (PNSequence)
@@ -160,7 +163,7 @@ for frame = 1:P.NumberOfFrames
                 end
 
                 % Summing over all fingers to get some diversity
-                desp_bits = sum(reshape(sum(rxsymbols,1) < 0,1,NbTXBits),1); 
+                desp_bits = sum(rxsymbols,1) < 0; 
                 
             otherwise,
                 disp('Source Encoding not supported')

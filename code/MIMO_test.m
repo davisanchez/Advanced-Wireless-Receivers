@@ -2,6 +2,7 @@
 % Anael Buchegger, Tim Tuuva, David Sanchez
 %
 % CDMA Parameter File
+% MIMO configuration
 %
 % Telecommunications Circuits Laboratory
 % EPFL
@@ -9,11 +10,10 @@
 clc; clear all; close all;
 
 % Parameters
-P.NumberOfFrames      = 5;
-P.NumberOfBits     = 172; % TODO, in simulator: NumberOfBits   = P.NumberOfSymbols*P.Modulation*RX; % per Frame
+P.NumberOfFrames      = 50;
+P.NumberOfBits     = 172; 
 P.Q_Ind = 12;
 
-P.AccessType = 'CDMA';
 P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 2;
 P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX antennas?
@@ -21,13 +21,21 @@ P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX a
                      % to decide which anteanns signals we just keep or mix
                      % in a good manner the information
 
-P.ChannelType   = 'AWGN'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.ChannelLength = 1; 
+P.ChannelType   = 'Multipath'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+
+if ((strcmp(P.ChannelType, 'ByPass') || strcmp(P.ChannelType, 'AWGN')) ...
+        && P.RXperUser > 1 && P.TXperUser > 1)
+    error('ByPass or AWGN make no sense with MIMO ! (destructive interferences)')
 end
-if strcmp(P.ChannelType, 'Fading')
-    P.CoherenceTime = 19200/3; % A third of a second 
+
+% Only applies for fading and multipath
+P.ChannelLength = 3; 
+P.RakeFingers = 3; 
+if (P.RakeFingers > P.ChannelLength)
+    error('Fingers has to be smaller or equal to channels !')
 end
+% Only applies for fading
+P.CoherenceTime = 19200/1000; % A thousandth of a second 
 
 P.HadLen = 64; % Length of Hadamard Sequence
 
@@ -36,13 +44,6 @@ P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
-
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    P.RakeFingers = 1; 
-    if (P.RakeFingers > P.ChannelLength)
-        error('Fingers has to be smaller or equal to channels !')
-    end
-end
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
@@ -53,8 +54,8 @@ P.SNRRange = -50:5:0; % SNR Range to simulate in dB
 BER = MIMOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
-    simlab = sprintf('%s - Paths: %d - Fingers : %d - Users: %d' ,...
-        P.ChannelType,P.ChannelLength, P.RakeFingers,P.CDMAUsers);
+    simlab = sprintf('%s - Paths: %d - TX/RX : %d/%d - Fingers : %d - Users: %d' ,...
+         P.ChannelType,P.ChannelLength,P.TXperUser,P.RXperUser,P.RakeFingers,P.CDMAUsers);
 else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
