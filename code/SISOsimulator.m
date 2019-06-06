@@ -56,6 +56,11 @@ for frame = 1:P.NumberOfFrames
     %encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
     % Here comes the interleaver (TODO)
+    %pas très efficace comme notation ^^
+    encoded_bits=encoded_bits.';
+    encoded_bits(:)=matintrlv(encoded_bits(:),32,12);    
+    %encoded_bits(:)=matdeintrlv(encoded_bits(:),32,12);
+    encoded_bits=encoded_bits.';
     
     % Pulse Shape (PNSequence)
     PN_symbols = xor(PNSequence, encoded_bits);
@@ -171,13 +176,26 @@ for frame = 1:P.NumberOfFrames
         % UN-PN
         unPN_symbols = xor(PNSequence, desp_bits);
         
+        % Here comes the de-interleaver--------> faut bien la faire sur les
+        % 384 bits qu'on reçoit non? sinon faut changer la taille de la
+        % matrice
+        unPN_symbols=double(unPN_symbols).';   
+        unPN_symbols(:)=matdeintrlv(unPN_symbols(:),32,12);
+        unPN_symbols=unPN_symbols.';
+        
         % Decoding Viterbi
-        decoded_bits = convDec(double(unPN_symbols).').'; % TODO, beurk beurk no??
+        %decoded_bits = convDec(double(unPN_symbols).').'; % TODO, beurk beurk no??
+        %j'ai enlevé le double vu que je le fais pour le deinterleaver
+        decoded_bits = convDec((unPN_symbols).').';
         
         % Remove the bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-(P.K-1)); 
         
-        % Here comes the de-interleaver (TODO)
+%         % Here comes the de-interleaver (TODO)
+%         rxbits=rxbits.';
+%         %rxbits(:)=matintrlv(rxbits(:),32,12);    
+%         rxbits(:)=matdeintrlv(rxbits(:),32,12);
+%         rxbits=rxbits.';
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count
