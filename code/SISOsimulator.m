@@ -58,9 +58,9 @@ for frame = 1:P.NumberOfFrames
     %encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
     % Interleaver
-    if strcmp(P.Interleaving, 'On')
-        encoded_bits=matintrlv(encoded_bits.',32,12).';    
-    end
+    %if strcmp(P.Interleaving, 'On')
+        %encoded_bits=matintrlv(encoded_bits.',32,12).';    
+    %end
     
     % Pulse Shape (PNSequence)
     PN_symbols = xor(PNSequence, encoded_bits);
@@ -178,9 +178,9 @@ for frame = 1:P.NumberOfFrames
         
         % De-interleaver
         unPN_symbols=double(unPN_symbols);   
-        if strcmp(P.Interleaving, 'On')
-            unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
-        end
+        %if strcmp(P.Interleaving, 'On')
+           % unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+        %end
         
         % Decoding Viterbi
         decoded_bits = convDec((unPN_symbols).').'; % TODO, beurk beurk no??

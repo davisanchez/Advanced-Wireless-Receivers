@@ -190,8 +190,34 @@ for frame = 1:P.NumberOfFrames
                 desp_bits = foo < 0;
                 
                 %% TODO MMSE
+                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
+                Ps = 1 / (SNRlin);
+                G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
+                foo = G * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                desp_bits = foo<0; %%????
                 
                 %% TODO SIC
+                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
+                for k = 1:P.TXperUser %%%%%%not sure!   
+                    H_k = H;
+                    y = rxsymbols(:, k);
+                    for nb_tx = 1:P.TXperUser %%%%%%not sure!   
+                        e = [1, zeros(1, P.TXperUser - nb_tx)];
+                        g = e/H_k;
+                            
+                        % Estimate signal
+                        s_est = g*y;
+                            
+                        y = y - H(:, nb_tx)*s_est;
+                            
+                        % Assign signal in rx_MIMO
+                        ind = k + (nb_tx - 1)*viterbi_length/P.TXperUser;
+                        foo(ind) = s_est;
+                            
+                        % Remove k-th column of H_k
+                        H_k = H_k(:, 2:end);
+                    end
+                end
                 
             otherwise
                 disp('Source Encoding not supported')
