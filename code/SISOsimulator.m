@@ -52,15 +52,15 @@ for frame = 1:P.NumberOfFrames
     % Convolutional encoding
     encoded_bits = convEnc(bits_ind.').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
     
-    % Symbol repetition
+    % Symbol repetition 
+    % Symbols shall not be repeated for a data rate of 9600bps, the one
+    % we're simulating (7-6)
     %encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
-    % Here comes the interleaver (TODO)
-    %pas très efficace comme notation ^^
-    encoded_bits=encoded_bits.';
-    encoded_bits(:)=matintrlv(encoded_bits(:),32,12);    
-    %encoded_bits(:)=matdeintrlv(encoded_bits(:),32,12);
-    encoded_bits=encoded_bits.';
+    % Interleaver
+    if strcmp(P.Interleaving, 'On')
+        encoded_bits=matintrlv(encoded_bits.',32,12).';    
+    end
     
     % Pulse Shape (PNSequence)
     PN_symbols = xor(PNSequence, encoded_bits);
@@ -154,7 +154,7 @@ for frame = 1:P.NumberOfFrames
                         rx_despread = HadamSequence.'*reshape(...
                                                       y(ind(finger):ind(finger)+NumberOfChips-1),...
                                                       P.HadLen, NbTXBits);
-                    else
+                    else % Fading
                         % Channel effect would be followed during transmission
                         h_conj = conj(h(1,:,ind(finger)));
                         % Despreading and neutralizing channel effect
@@ -176,26 +176,17 @@ for frame = 1:P.NumberOfFrames
         % UN-PN
         unPN_symbols = xor(PNSequence, desp_bits);
         
-        % Here comes the de-interleaver--------> faut bien la faire sur les
-        % 384 bits qu'on reçoit non? sinon faut changer la taille de la
-        % matrice
-        unPN_symbols=double(unPN_symbols).';   
-        unPN_symbols(:)=matdeintrlv(unPN_symbols(:),32,12);
-        unPN_symbols=unPN_symbols.';
+        % De-interleaver
+        unPN_symbols=double(unPN_symbols);   
+        if strcmp(P.Interleaving, 'On')
+            unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+        end
         
         % Decoding Viterbi
-        %decoded_bits = convDec(double(unPN_symbols).').'; % TODO, beurk beurk no??
-        %j'ai enlevé le double vu que je le fais pour le deinterleaver
-        decoded_bits = convDec((unPN_symbols).').';
+        decoded_bits = convDec((unPN_symbols).').'; % TODO, beurk beurk no??
         
         % Remove the bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-(P.K-1)); 
-        
-%         % Here comes the de-interleaver (TODO)
-%         rxbits=rxbits.';
-%         %rxbits(:)=matintrlv(rxbits(:),32,12);    
-%         rxbits(:)=matdeintrlv(rxbits(:),32,12);
-%         rxbits=rxbits.';
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count

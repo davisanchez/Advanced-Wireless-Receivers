@@ -14,7 +14,9 @@ P.NumberOfFrames   = 50;
 P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
-P.ChannelType   = 'ByPass' %'Multipath'; % 'Multipath','Fading'%, 'AWGN'%, 
+P.Interleaving = 'On'; % 'On' or 'Off'
+
+P.ChannelType   = 'ByPass'; % 'ByPass','Multipath','Fading', 'AWGN' 
 
 % Only applies for fading and multipath
 P.ChannelLength = 3; 
