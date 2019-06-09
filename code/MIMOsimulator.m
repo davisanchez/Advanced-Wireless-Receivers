@@ -95,6 +95,7 @@ for frame = 1:P.NumberOfFrames
         case 'Multipath',
             himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength) +...
                             1i * randn(RX,TX,P.ChannelLength));
+                        
             for r = 1:RX % Normalization for each combination
                 for t = 1:TX
                     himp(r,t,:) = himp(r,t,:)/sqrt(sum(abs(himp(r,t,:)).^2)); 
@@ -183,11 +184,12 @@ for frame = 1:P.NumberOfFrames
                     end
                 end
                 
-                %% Zero Forcing Detector
-                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
-                foo = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
-                plot(foo.', '.')
-                desp_bits = foo < 0;
+                %% Zero Forcing Detector       
+                % We permute the himp to combine such that the H-1 will
+                % cancel out the interference inside rxsymbols
+                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
+                desp_bits = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                plot(desp_bits.', '.')
                 
                 %% TODO MMSE
                 
@@ -196,10 +198,13 @@ for frame = 1:P.NumberOfFrames
             otherwise
                 disp('Source Encoding not supported')
         end
+        % Hard Decision
+        desc_bits = desp_bits < 0;
+        
         % UN-PN
         unPN_symbols = zeros(TX, NbTXBits);
         for t=1:TX
-            unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
+            unPN_symbols(t,:) = xor(PNSequence, desc_bits(t,:)); % TODO add user loop here
         end
         
         
