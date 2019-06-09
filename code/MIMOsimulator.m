@@ -44,6 +44,7 @@ trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
 convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated', 'InputFormat','Hard');
 
+figure;
 for frame = 1:P.NumberOfFrames
     
     frame
@@ -51,8 +52,8 @@ for frame = 1:P.NumberOfFrames
     bits = randi([0 1],TX,P.NumberOfBits); % Random Data, High rate
     
     % TODO debug MIMO USE THIS TO DEBUG WITH RX = 2 !!
-%     bits = randi([0 1],1,P.NumberOfBits); % Random Data
-%     bits = [bits; bits];
+    % bits = randi([0 1],1,P.NumberOfBits); % Random Data
+    % bits = [bits; bits];
     
     % Add Frame Quality Indicator (bonus)
     bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
@@ -60,7 +61,7 @@ for frame = 1:P.NumberOfFrames
     % Convolutional encoding
     encoded_bits = zeros(TX,NbTXBits);
     for t=1:TX
-        encoded_bits(t,:) = convEnc(bits_ind(t,:).').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
+        encoded_bits(t,:) = convEnc(bits_ind(t,:).').';
     end
     
     % Symbol repetition
@@ -163,65 +164,49 @@ for frame = 1:P.NumberOfFrames
             case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                desp_bits_all = zeros(RX+TX,NbTXBits);
+                desp_bits_all = zeros(RX,NbTXBits);
                 desp_bits = zeros(TX,NbTXBits);
                 
                 % Separation between antennas ? How to get himp ?
-                i = 1;
-                for r = 1:RX
-                    for t = 1:TX
+                for r = 1:RX                    
+                    for finger = 1:P.RakeFingers
                         
-                        % Order the best fingers
-                        [~,ind] = maxk(himp(r,t,:),P.RakeFingers);
-                        
-                        for finger = 1:P.RakeFingers
-                            % Channel would be estimated for each path
-                            himp_conj = conj(himp(r,t,ind(finger)));
-                            if strcmp(P.ChannelType,'Multipath')
-                                % Despreading
-                                rx_despread = HadamSequence.'*reshape(...
-                                                              y(r,ind(finger):ind(finger)+NumberOfChips-1),...
-                                                              P.HadLen, NbTXBits);
-                            end
-                            % Neutralizing global channel effect
-                            rxsymbols(r,finger,:) = himp_conj * rx_despread;
+                        if strcmp(P.ChannelType,'Multipath')
+                            % Despreading
+                            rx_despread = HadamSequence.'*reshape(...
+                                y(r,finger:finger+NumberOfChips-1),...
+                                P.HadLen, NbTXBits);
                         end
-                        % Summing over all fingers to get some diversity
-                        desp_bits_all(i,:) = sum(rxsymbols(r,:,:),2);  
-                        i = i + 1;
+                        % Neutralizing global channel effect
+                        rxsymbols(r,finger,:) = rx_despread;
+                        
                     end
                 end
-                % Summing for TX
-                desp_bits(1,:) = (desp_bits_all(1,:)+desp_bits_all(3,:)) < 0;
-                desp_bits(2,:) = (desp_bits_all(2,:)+desp_bits_all(4,:)) < 0;
-%                 else
-%                     rxsymbols(r,finger,:) = squeeze(conj(himp_mean(r,ind(finger),:)))*HadamSequence.'*...
-%                         reshape(y(r,ind(finger),:), ...
-%                         P.HadLen, NumberOfChipsRX/P.HadLen);
-%                 end
-
-                % TODO diversity or High rate possibility???
-%                 desc_bits = zeros(RX,NbTXBits);
-%                 for r = 1:RX
-%                     % THIS IS AN EXAMPLE OF DIVERSITY ( I guess... ) TODO
-%                     % TODO IMPORTANT HERE, the sum is doing the diversity
-%                     desc_bits(r,:) = sum(reshape(sum(rxsymbols(r,:,:),2) < 0,P.ChannelLength,NbTXBits),1)/P.ChannelLength; 
-%                 end
+                
+                %% Zero Forcing Detector
+                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
+                foo = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                plot(foo.', '.')
+                desp_bits = foo < 0;
+                
+                %% TODO MMSE
+                
+                %% TODO SIC
                 
             otherwise
                 disp('Source Encoding not supported')
         end
         % UN-PN
-        unPN_symbols = zeros(RX, NbTXBits);
-        for r=1:RX
-            unPN_symbols(r,:) = xor(PNSequence, desp_bits(r,:)); % TODO add user loop here
+        unPN_symbols = zeros(TX, NbTXBits);
+        for t=1:TX
+            unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
         end
         
         
         % Decoding Viterbi
-        decoded_bits = zeros(RX,NbTXBits/2);
-        for r = 1:RX
-            decoded_bits(r,:) = convDec(double(unPN_symbols(r,:)).').'; % TODO, beurk beurk no??
+        decoded_bits = zeros(TX,NbTXBits/2);
+        for t = 1:TX
+            decoded_bits(t,:) = convDec(double(unPN_symbols(t,:)).').'; % TODO, beurk beurk no??
         end
         
         % Remove the 8 bit encoding trail
@@ -230,7 +215,6 @@ for frame = 1:P.NumberOfFrames
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count
         errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
-        
         Results(ss) = Results(ss) + errors;
         
     end
