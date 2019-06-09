@@ -21,7 +21,7 @@ P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX a
                      % to decide which anteanns signals we just keep or mix
                      % in a good manner the information
 
-P.ChannelType   = 'Multipath'; % 'Multipath', 'Fading', 'AWGN', 'ByPass'
+P.ChannelType   = 'Multipath'; % ,'Fading', 'AWGN', 'ByPass'
 
 if ((strcmp(P.ChannelType, 'ByPass') || strcmp(P.ChannelType, 'AWGN')) ...
         && P.RXperUser > 1 && P.TXperUser > 1)
@@ -45,13 +45,14 @@ P.Rate = length(P.ConvSeq);
 
 P.LongCodeLength = 42; % PN Sequence
 
-P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
+P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 
 P.SNRRange = -50:5:0; % SNR Range to simulate in dB
 
 % P.ReceiverType  = 'Rake'; % Only one type for the project
 
-BER = MIMOsimulator(P);
+
+BER = MIMOsimulator(P); %Simulation
 
 if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
     simlab = sprintf('%s - Paths: %d - TX/RX : %d/%d - Fingers : %d - Users: %d' ,...
@@ -60,6 +61,7 @@ else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
 
+%plotting
 figure;
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
 

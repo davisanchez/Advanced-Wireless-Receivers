@@ -1,9 +1,9 @@
 clc; clear all;
 
-channel = {'Multipath','Fading','ByPass', 'AWGN'};
+channel = {'Multipath','ByPass', 'AWGN'};%'Fading'};
 
 % Parameters
-P.NumberOfFrames   = 50;
+P.NumberOfFrames   = 500;
 P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
@@ -30,12 +30,13 @@ P.LongCodeLength = 42; % PN Sequence
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
 P.SNRRange = -50:5:0; % SNR Range to simulate in dB
+%P.Interleaving='On';
 
 %changing channels
 figure;
 hold on;
 grid minor;
-for i=1:4
+for i=1:3
 P.ChannelType=channel{i} 
 
 BER = SISOsimulator(P);
@@ -60,7 +61,7 @@ end
 %changing channel length
 figure;
 hold on;
-P.ChannelType='Multipath'
+P.ChannelType='Fading'
 
 for j=1:length(lengthch)
     P.ChannelLength=lengthch(j);
