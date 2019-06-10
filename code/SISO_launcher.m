@@ -9,19 +9,26 @@
 
 clc; clear all; %close all;
 
-% Parameters
-P.NumberOfFrames   = 500;
-P.NumberOfBits     = 172;
-P.Q_Ind = 12;
+%% Parameters
+P.NumberOfFrames = 500;
+P.SNRRange = -35:1:-5; % SNR Range to simulate in dB
 
+P.NumberOfBits = 172;
+P.Q_Ind = 12;
+P.HadLen = 64; % Length of Hadamard Sequence
+P.K = 9; % Length of convolutional encoder
+P.ConvSeq = [753 561]; % Rate 1/2
+P.Rate = length(P.ConvSeq);
+P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 P.Interleaving = 'Off'; % 'On' or 'Off'
 
+%% Channel and Detectors
 P.ChannelType   = 'AWGN'; % 'ByPass','Multipath','Fading', 'AWGN' 
 
 % Only applies for fading and multipath
 P.ChannelLength = 3; 
-
 P.RakeFingers = 3; 
+% Check
 if (P.RakeFingers > P.ChannelLength)
     error('Fingers has to be smaller or equal to channels !')
 end
@@ -29,18 +36,7 @@ end
 % Only applies for fading
 P.CoherenceTime = 19; % A thousandth of a second 
 
-P.HadLen = 64; % Length of Hadamard Sequence
-
-P.K = 9; % Length of convolutional encoder
-P.ConvSeq = [753 561]; % Rate 1/2
-P.Rate = length(P.ConvSeq);
-
-P.LongCodeLength = 42; % PN Sequence
-
-P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
-
-P.SNRRange = -35:1:-5; % SNR Range to simulate in dB
-
+%% Simulation
 BER = SISOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
@@ -49,6 +45,7 @@ else
     simlab = sprintf('%s' ,P.ChannelType);
 end
 
+%% Plotting
 figure
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
 

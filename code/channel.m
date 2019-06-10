@@ -1,4 +1,5 @@
 function h = channel(RX,NumberOfSymbols,NumberOfCarriers,CoherenceTime,CoherenceBandwidth)
+% Function used in fading channel (SISO)
 tfactor = 2;
 tborder = max(100,2*CoherenceTime*tfactor);
 fborder = max(100,2*CoherenceBandwidth);

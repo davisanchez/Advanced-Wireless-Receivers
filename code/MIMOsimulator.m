@@ -7,7 +7,7 @@
 % EPFL
 
 
-function BER = MIMOsimulator(P)
+function BER = MIMOsimulatorII(P)
 
     RX = P.RXperUser;
     TX = P.TXperUser;
@@ -67,7 +67,10 @@ for frame = 1:P.NumberOfFrames
     % Symbol repetition
     % encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
-    % Here comes the interleaver (TODO)
+    % Interleaver
+    if strcmp(P.Interleaving, 'On')
+        encoded_bits=matintrlv(encoded_bits.',32,12).';    
+    end
     
     % Pulse Shape (PNSequence)
     PN_symbols = zeros(TX, NbTXBits);
@@ -159,17 +162,16 @@ for frame = 1:P.NumberOfFrames
             case {'AWGN','ByPass'}
                 % Despreading
                 rxsymbols = conj(himp).*HadamSequence.'*reshape(y, P.HadLen, NbTXBits);
-                    
-                desp_bits = rxsymbols < 0; 
-            
+                
+                desp_bits = rxsymbols < 0;
+                
             case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                desp_bits_all = zeros(RX,NbTXBits);
                 desp_bits = zeros(TX,NbTXBits);
                 
                 % Separation between antennas ? How to get himp ?
-                for r = 1:RX                    
+                for r = 1:RX
                     for finger = 1:P.RakeFingers
                         
                         if strcmp(P.ChannelType,'Multipath')
@@ -183,68 +185,77 @@ for frame = 1:P.NumberOfFrames
                         
                     end
                 end
+            otherwise
+                disp('Source Encoding not supported')
+        end
                 
-                %% Zero Forcing Detector       
+        %% MIMO detector
+        switch P.Detector
+            case 'ZF'
+                % Zero Forcing Detector
                 % We permute the himp to combine such that the H-1 will
                 % cancel out the interference inside rxsymbols
                 H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
                 desp_bits = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
-                plot(desp_bits.', '.')
+                %plot(desp_bits.', '.')
                 
-                %% TODO MMSE
-                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
+            case 'MMSE'
+                % MMSE
+                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
                 Ps = 1 / (SNRlin);
                 G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
-                foo = G * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
-                desp_bits = foo<0; %%????
+                desp_bits = G * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                %plot(desp_bits.', '.')
                 
-                %% TODO SIC
-                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser);
-                for k = 1:P.TXperUser %%%%%%not sure!   
-                    H_k = H;
-                    y = rxsymbols(:, k);
-                    for nb_tx = 1:P.TXperUser %%%%%%not sure!   
-                        e = [1, zeros(1, P.TXperUser - nb_tx)];
-                        g = e/H_k;
-                            
-                        % Estimate signal
-                        s_est = g*y;
-                            
-                        y = y - H(:, nb_tx)*s_est;
-                            
-                        % Assign signal in rx_MIMO
-                        ind = k + (nb_tx - 1)*viterbi_length/P.TXperUser;
-                        foo(ind) = s_est;
-                            
-                        % Remove k-th column of H_k
-                        H_k = H_k(:, 2:end);
-                    end
+                
+            case 'SIC'
+                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
+                H_k = H;
+                y_k = reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                for k = 1:P.TXperUser
+                    
+                    e = [1, zeros(1, P.TXperUser - k)];
+                    g = e * pinv(H_k);
+                    
+                    % Estimate signal
+                    s_est = (g*y_k);
+                    
+                    y_k = y_k - H(:, k)*s_est;
+                    %plot(y_k.', '.')
+                    
+                    % Remove k-th column of H_k
+                    H_k = H_k(:, 2:end);
                 end
-                
+                desp_bits = y_k;
             otherwise
-                disp('Source Encoding not supported')
+                disp('Detector not supported')
         end
-        % Hard Decision
+        %% Hard Decision
         desc_bits = desp_bits < 0;
         
-        % UN-PN
+        %% UN-PN
         unPN_symbols = zeros(TX, NbTXBits);
         for t=1:TX
             unPN_symbols(t,:) = xor(PNSequence, desc_bits(t,:)); % TODO add user loop here
         end
         
+        % De-interleaver
+        unPN_symbols=double(unPN_symbols);   
+        if strcmp(P.Interleaving, 'On')
+           unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+        end    
         
-        % Decoding Viterbi
+        %% Decoding Viterbi
         decoded_bits = zeros(TX,NbTXBits/2);
         for t = 1:TX
-            decoded_bits(t,:) = convDec(double(unPN_symbols(t,:)).').'; % TODO, beurk beurk no??
+            decoded_bits(t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
         end
         
-        % Remove the 8 bit encoding trail
+        %% Remove the 8 bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % BER count
+        %% BER count
         errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
         Results(ss) = Results(ss) + errors;
         
