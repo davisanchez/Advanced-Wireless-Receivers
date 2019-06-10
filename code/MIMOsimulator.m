@@ -97,12 +97,14 @@ for frame = 1:P.NumberOfFrames
                         
             for r = 1:RX % Normalization for each combination
                 for t = 1:TX
-                    himp(r,t,:) = himp(r,t,:)/sqrt(sum(abs(himp(r,t,:)).^2)); 
+                    himp(r,t,:) = himp(r,t,:);%/sqrt(sum(abs(himp(r,t,:)).^2)); 
                 end
             end          
         otherwise
             disp('Channel not supported')
     end
+    % Normalisation
+    himp = himp/norm(himp);
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Simulation
