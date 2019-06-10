@@ -15,7 +15,7 @@ P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
 % Only applies for fading
-P.CoherenceTime = 19200/1000; % A thousandth of a second 
+P.CoherenceTime = 19; % A thousandth of a second 
 
 P.HadLen = 64; % Length of Hadamard Sequence
 P.K = 9; % Length of convolutional encoder

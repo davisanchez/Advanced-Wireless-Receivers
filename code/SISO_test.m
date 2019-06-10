@@ -10,13 +10,13 @@
 clc; clear all; %close all;
 
 % Parameters
-P.NumberOfFrames   = 50;
+P.NumberOfFrames   = 500;
 P.NumberOfBits     = 172;
 P.Q_Ind = 12;
 
-%P.Interleaving = 'On'; % 'On' or 'Off'
+P.Interleaving = 'Off'; % 'On' or 'Off'
 
-P.ChannelType   = 'Fading' % 'ByPass','Multipath','Fading', 'AWGN' 
+P.ChannelType   = 'AWGN'; % 'ByPass','Multipath','Fading', 'AWGN' 
 
 % Only applies for fading and multipath
 P.ChannelLength = 3; 
@@ -27,7 +27,7 @@ if (P.RakeFingers > P.ChannelLength)
 end
 
 % Only applies for fading
-P.CoherenceTime = 19200/1000; % A thousandth of a second 
+P.CoherenceTime = 19; % A thousandth of a second 
 
 P.HadLen = 64; % Length of Hadamard Sequence
 
@@ -39,7 +39,7 @@ P.LongCodeLength = 42; % PN Sequence
 
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
 
-P.SNRRange = -50:5:0; % SNR Range to simulate in dB
+P.SNRRange = -35:1:-5; % SNR Range to simulate in dB
 
 BER = SISOsimulator(P);
 
@@ -49,8 +49,7 @@ else
     simlab = sprintf('%s' ,P.ChannelType);
 end
 
-figure;
-hold on;
+figure
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
 
 xlabel('SNR','FontSize',12,'FontWeight','bold');
