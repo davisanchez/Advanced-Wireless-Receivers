@@ -149,53 +149,46 @@ for frame = 1:P.NumberOfFrames
                 
                 desp_bits = rxsymbols < 0;
                 
-            case 'Multipath' % RAKE receiver (will we have other types ?)
+            case 'Multipath'
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                desp_bits = zeros(TX,NbTXBits);
                 
                 % Separation between antennas ? How to get himp ?
                 for r = 1:RX
-                    for finger = 1:P.RakeFingers
-                        
+                    for finger = 1:P.RakeFingers   
                         if strcmp(P.ChannelType,'Multipath')
                             % Despreading
-                            rx_despread = HadamSequence.'*reshape(...
+                            rxsymbols(r,finger,:) = HadamSequence.'*reshape(...
                                 y(r,finger:finger+NumberOfChips-1),...
                                 P.HadLen, NbTXBits);
                         end
-                        % Neutralizing global channel effect
-                        rxsymbols(r,finger,:) = rx_despread;
-                        
                     end
                 end
             otherwise
                 disp('Source Encoding not supported')
         end
+        % We permute the himp to combine such that the H-1 will
+        % cancel out the interference inside rxsymbols
+        H = reshape(permute(himp(:,:,1:P.RakeFingers), [1,3,2]), P.RakeFingers*P.RXperUser, P.TXperUser);
                 
         % MIMO detector
         switch P.Detector
             case 'ZF'
                 % Zero Forcing Detector
-                % We permute the himp to combine such that the H-1 will
-                % cancel out the interference inside rxsymbols
-                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
-                desp_bits = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                desp_bits = pinv(H) * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
                 %plot(desp_bits.', '.')
                 
             case 'MMSE'
                 % MMSE
-                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
                 Ps = 1 / (SNRlin);
                 G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
-                desp_bits = G * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
                 %plot(desp_bits.', '.')
                 
                 
             case 'SIC'
-                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
                 H_k = H;
-                y_k = reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                y_k = reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
                 for k = 1:P.TXperUser
                     
                     e = [1, zeros(1, P.TXperUser - k)];

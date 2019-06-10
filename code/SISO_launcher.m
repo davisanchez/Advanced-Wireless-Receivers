@@ -10,7 +10,7 @@
 clc; clear all; %close all;
 
 %% Parameters
-P.NumberOfFrames = 500;
+P.NumberOfFrames = 10;
 P.SNRRange = -35:1:-5; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172;
@@ -20,10 +20,10 @@ P.K = 9; % Length of convolutional encoder
 P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
-P.Interleaving = 'Off'; % 'On' or 'Off'
+P.Interleaving = 'On'; % 'On' or 'Off'
 
 %% Channel and Detectors
-P.ChannelType   = 'AWGN'; % 'ByPass','Multipath','Fading', 'AWGN' 
+P.ChannelType   = 'Multipath'; % 'ByPass','Multipath','Fading', 'AWGN' 
 
 % Only applies for fading and multipath
 P.ChannelLength = 3; 

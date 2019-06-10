@@ -7,11 +7,11 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all; close all;
+clc; clear all;% close all;
 
 %% Parameters
-P.NumberOfFrames = 50;
-P.SNRRange = -50:5:0; % SNR Range to simulate in dB
+P.NumberOfFrames = 20;
+P.SNRRange = -30:1:-5; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
 P.Q_Ind = 12;
@@ -25,15 +25,15 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 3;
-P.TXperUser     = 1;
+P.TXperUser     = 2;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for fading and multipath
-P.ChannelLength = 1; 
+P.ChannelLength = 2; 
 P.RakeFingers = 1; 
-P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
+P.Detector = 'MMSE'; % 'ZF', 'MMSE', 'SIC'
 
 % Only applies for fading
 P.CoherenceTime = 19; % A thousandth of a second 
