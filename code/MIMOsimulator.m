@@ -176,15 +176,16 @@ for frame = 1:P.NumberOfFrames
             case 'ZF'
                 % Zero Forcing Detector
                 desp_bits = pinv(H) * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
-                %plot(desp_bits.', '.')
+                % Hard Decision
+                desc_bits = desp_bits < 0;
                 
             case 'MMSE'
                 % MMSE
                 Ps = 1 / (SNRlin);
                 G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
-                desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
-                %plot(desp_bits.', '.')
-                
+                desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);                
+                % Hard Decision
+                desc_bits = desp_bits < 0;
                 
             case 'SIC'
                 H_k = H;
@@ -195,21 +196,19 @@ for frame = 1:P.NumberOfFrames
                     g = e * pinv(H_k);
                     
                     % Estimate signal
-                    s_est = (g*y_k);
-                    
-                    y_k = y_k - H(:, k)*s_est;
-                    %plot(y_k.', '.')
+                    s_hat = (g*y_k) < 0;
+                    y_k = y_k - H(:, k)*s_hat;
                     
                     % Remove k-th column of H_k
                     H_k = H_k(:, 2:end);
+                    
+                    %
+                    desc_bits(k,:) = s_hat;
                 end
-                desp_bits = y_k;
             otherwise
                 disp('Detector not supported')
         end
-        % Hard Decision
-        desc_bits = desp_bits < 0;
-        
+
         % UN-PN
         unPN_symbols = zeros(TX, NbTXBits);
         for t=1:TX

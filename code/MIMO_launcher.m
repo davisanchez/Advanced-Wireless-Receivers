@@ -24,16 +24,16 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
-P.RXperUser     = 3;
+P.RXperUser     = 2;
 P.TXperUser     = 2;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for fading and multipath
-P.ChannelLength = 2; 
+P.ChannelLength = 1; 
 P.RakeFingers = 1; 
-P.Detector = 'MMSE'; % 'ZF', 'MMSE', 'SIC'
+P.Detector = 'SIC'; % 'ZF', 'MMSE', 'SIC'
 
 % Only applies for fading
 P.CoherenceTime = 19; % A thousandth of a second 
