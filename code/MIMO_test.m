@@ -9,50 +9,51 @@
 
 clc; clear all; close all;
 
-% Parameters
+%% Parameters
 P.NumberOfFrames      = 50;
 P.NumberOfBits     = 172; 
 P.Q_Ind = 12;
 
-P.CDMAUsers     = 1; %TODO
-P.RXperUser     = 2;
-P.TXperUser     = 2; % TODO is that ok there isnot a equal number of RX and TX antennas?
-                     % right now We can't have a different number, we have
-                     % to decide which anteanns signals we just keep or mix
-                     % in a good manner the information
+% Only applies for fading
+P.CoherenceTime = 19200/1000; % A thousandth of a second 
 
-P.ChannelType   = 'Multipath'; % ,'Fading', 'AWGN', 'ByPass'
+P.HadLen = 64; % Length of Hadamard Sequence
+P.K = 9; % Length of convolutional encoder
+P.ConvSeq = [753 561]; % Rate 1/2
+P.Rate = length(P.ConvSeq);
+P.LongCodeLength = 42; % PN Sequence
+P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
+
+%% Users and Antennas
+P.CDMAUsers     = 1; %TODO
+P.RXperUser     = 3;
+P.TXperUser     = 1;
+
+%% Channel and Detectors
+P.SNRRange = -50:5:0; % SNR Range to simulate in dB
+P.ChannelType   = 'Multipath'; % 'Multipath' ,'Fading', 'AWGN', 'ByPass'
+
+% Only applies for fading and multipath
+P.ChannelLength = 1; 
+P.RakeFingers = 1; 
+P.Detector = 'SIC'; % 'ZF', 'MMSE', 'SIC'
+
+%% Checks
+if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
+    error('Can not have nTx > nRx, with ZF detector');
+end
 
 if ((strcmp(P.ChannelType, 'ByPass') || strcmp(P.ChannelType, 'AWGN')) ...
         && P.RXperUser > 1 && P.TXperUser > 1)
     error('ByPass or AWGN make no sense with MIMO ! (destructive interferences)')
 end
 
-% Only applies for fading and multipath
-P.ChannelLength = 3; 
-P.RakeFingers = 3; 
 if (P.RakeFingers > P.ChannelLength)
     error('Fingers has to be smaller or equal to channels !')
 end
-% Only applies for fading
-P.CoherenceTime = 19200/1000; % A thousandth of a second 
 
-P.HadLen = 64; % Length of Hadamard Sequence
-
-P.K = 9; % Length of convolutional encoder
-P.ConvSeq = [753 561]; % Rate 1/2
-P.Rate = length(P.ConvSeq);
-
-P.LongCodeLength = 42; % PN Sequence
-
-P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
-
-P.SNRRange = -50:5:0; % SNR Range to simulate in dB
-
-% P.ReceiverType  = 'Rake'; % Only one type for the project
-
-
-BER = MIMOsimulator(P); %Simulation
+ %% Simulation
+BER = MIMOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
     simlab = sprintf('%s - Paths: %d - TX/RX : %d/%d - Fingers : %d - Users: %d' ,...
@@ -61,7 +62,7 @@ else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
 
-%plotting
+%% Plotting
 figure;
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
 

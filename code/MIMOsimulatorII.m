@@ -95,6 +95,7 @@ for frame = 1:P.NumberOfFrames
         case 'Multipath',
             himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength) +...
                             1i * randn(RX,TX,P.ChannelLength));
+                        
             for r = 1:RX % Normalization for each combination
                 for t = 1:TX
                     himp(r,t,:) = himp(r,t,:)/sqrt(sum(abs(himp(r,t,:)).^2)); 
@@ -158,29 +159,22 @@ for frame = 1:P.NumberOfFrames
             case {'AWGN','ByPass'}
                 % Despreading
                 rxsymbols = conj(himp).*HadamSequence.'*reshape(y, P.HadLen, NbTXBits);
-                    
-                desp_bits = rxsymbols < 0; 
-            
+                
+                desp_bits = rxsymbols < 0;
+                
             case {'Multipath','Fading'} % RAKE receiver (will we have other types ?)
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                desp_bits_all = zeros(RX,NbTXBits);
                 desp_bits = zeros(TX,NbTXBits);
                 
                 % Separation between antennas ? How to get himp ?
                 for r = 1:RX
-                    
-                    % Order the best fingers
-                    [~,ind] = maxk(himp(r,:,:),P.RakeFingers, 3);
-                    
                     for finger = 1:P.RakeFingers
-                        % Channel would be estimated for each path
-                        himp_conj = conj(himp(r,:,ind(finger))); % Pinv or Conj now??? TODO TODO TODO
                         
                         if strcmp(P.ChannelType,'Multipath')
                             % Despreading
                             rx_despread = HadamSequence.'*reshape(...
-                                y(r,ind(finger):ind(finger)+NumberOfChips-1),...
+                                y(r,finger:finger+NumberOfChips-1),...
                                 P.HadLen, NbTXBits);
                         end
                         % Neutralizing global channel effect
@@ -188,34 +182,73 @@ for frame = 1:P.NumberOfFrames
                         
                     end
                 end
-                H = reshape(permute(himp, [3,1,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO Magick number here
-                foo = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
-                plot(foo.', '.')
-                desp_bits = (foo) < 0;
-                
             otherwise
                 disp('Source Encoding not supported')
         end
-        % UN-PN
+                
+        %% MIMO detector
+        switch P.Detector
+            case 'ZF'
+                % Zero Forcing Detector
+                % We permute the himp to combine such that the H-1 will
+                % cancel out the interference inside rxsymbols
+                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
+                desp_bits = pinv(H) * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                %plot(desp_bits.', '.')
+                
+            case 'MMSE'
+                % MMSE
+                H = reshape(permute(himp, [1,3,2]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
+                Ps = 1 / (SNRlin);
+                G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
+                desp_bits = G * reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                %plot(desp_bits.', '.')
+                
+                
+            case 'SIC'
+                H = reshape(permute(himp, [1,2,3]), P.ChannelLength*P.RXperUser, P.TXperUser); % TODO need to select the best himp within the rake!
+                H_k = H;
+                y_k = reshape(rxsymbols, P.ChannelLength*P.RXperUser, []);
+                for k = 1:P.TXperUser
+                    
+                    e = [1, zeros(1, P.TXperUser - k)];
+                    g = e * pinv(H_k);
+                    
+                    % Estimate signal
+                    s_est = (g*y_k);
+                    
+                    y_k = y_k - H(:, k)*s_est;
+                    %plot(y_k.', '.')
+                    
+                    % Remove k-th column of H_k
+                    H_k = H_k(:, 2:end);
+                end
+                desp_bits = y_k;
+            otherwise
+                disp('Detector not supported')
+        end
+        %% Hard Decision
+        desc_bits = desp_bits < 0;
+        
+        %% UN-PN
         unPN_symbols = zeros(TX, NbTXBits);
         for t=1:TX
-            unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
+            unPN_symbols(t,:) = xor(PNSequence, desc_bits(t,:)); % TODO add user loop here
         end
         
         
-        % Decoding Viterbi
+        %% Decoding Viterbi
         decoded_bits = zeros(TX,NbTXBits/2);
         for t = 1:TX
             decoded_bits(t,:) = convDec(double(unPN_symbols(t,:)).').'; % TODO, beurk beurk no??
         end
         
-        % Remove the 8 bit encoding trail
+        %% Remove the 8 bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % BER count
+        %% BER count
         errors =  sum(sum(rxbits ~= bits)); % TODO good way to compute error here?
-        
         Results(ss) = Results(ss) + errors;
         
     end
