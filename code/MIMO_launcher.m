@@ -28,8 +28,7 @@ P.RXperUser     = 3;
 P.TXperUser     = 1;
 
 %% Channel and Detectors
-
-P.ChannelType   = 'Multipath'; % 'Multipath' ,'Fading', 'AWGN', 'ByPass'
+P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for fading and multipath
 P.ChannelLength = 1; 
@@ -56,7 +55,7 @@ end
 %% Simulation
 BER = MIMOsimulator(P);
 
-if strcmp(P.ChannelType, 'Multipath') | strcmp(P.ChannelType, 'Fading')
+if strcmp(P.ChannelType, 'Multipath')
     simlab = sprintf('%s - Paths: %d - TX/RX : %d/%d - Fingers : %d - Users: %d' ,...
          P.ChannelType,P.ChannelLength,P.TXperUser,P.RXperUser,P.RakeFingers,P.CDMAUsers);
 else

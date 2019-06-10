@@ -1,7 +1,8 @@
 % Wireless Receivers Project:
 % Anael Buchegger, Tim Tuuva, David Sanchez
 %
-% SISO, 1 User only (simplest case)
+% SISO Simulation Framework
+% 1 User only (simplest case) 
 %
 % Telecommunications Circuits Laboratory
 % EPFL
@@ -10,12 +11,12 @@
 function BER = SISOsimulator(P)
     
     % Generate the spreading sequence
-    HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    %TODO normalization      
+    HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    % Normalization      
     
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
-    HadamSequence     = HadamardMatrix(:,42); %42 but could pick anything
+    HadamSequence     = HadamardMatrix(:,42); % 42 but could pick anything % TODO Magick numbers
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
                                'Mask', P.SequenceMask, ...
@@ -34,7 +35,6 @@ function BER = SISOsimulator(P)
 
 Results = zeros(1,length(P.SNRRange));
 
-% verifier si c'est les bon coeff!
 % Note that these are terminated, so they include the tail
 trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
@@ -54,12 +54,12 @@ for frame = 1:P.NumberOfFrames
     
     % Symbol repetition 
     % Symbols shall not be repeated for a data rate of 9600bps, the one
-    % we're simulating (7-6)
-    %encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
+    % we are simulating (7-6)
+    % encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
     
     % Interleaver
     if strcmp(P.Interleaving, 'On')
-        encoded_bits=matintrlv(encoded_bits.',32,12).';    
+        encoded_bits=matintrlv(encoded_bits.',32,12).';  % TODO Magick numbers   
     end
     
     % Pulse Shape (PNSequence)
@@ -77,31 +77,28 @@ for frame = 1:P.NumberOfFrames
     switch P.ChannelType
         case {'ByPass','AWGN'}
             himp = 1;
-        case 'Multipath',
+        case 'Multipath'
             himp = sqrt(1/2)* (randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength));
             himp = himp/sqrt(sum(abs(himp).^2)); % Normalization
-        case 'Fading',
+        case 'Fading'
             % Channel impulse for each path
             himp = sqrt(1/2)* (randn(1,P.ChannelLength) + 1i * randn(1,P.ChannelLength));
             himp = himp/sqrt(sum(abs(himp).^2)); % Normalization
             % Channel variation for each bit
             h = channel(P.ChannelLength,NumberOfChips,1,P.CoherenceTime,1);           
-        otherwise,
+        otherwise
             disp('Channel not supported')
     end
-
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Simulation
     
     switch P.ChannelType
         case {'AWGN','ByPass'}
-            snoise = randn(1,NumberOfChips) + 1i* randn(1,NumberOfChips) ;
-            
+            snoise = randn(1,NumberOfChips) + 1i* randn(1,NumberOfChips) ;      
         case {'Multipath','Fading'}
             snoise = randn(1,NumberOfChipsRX) + ...
-                      1i* randn(1,NumberOfChipsRX);    
-             
+                      1i* randn(1,NumberOfChipsRX);           
     end
     
     % SNR Range
@@ -173,6 +170,7 @@ for frame = 1:P.NumberOfFrames
             otherwise,
                 disp('Source Encoding not supported')
         end
+        
         % UN-PN
         unPN_symbols = xor(PNSequence, desp_bits);
         
@@ -190,8 +188,7 @@ for frame = 1:P.NumberOfFrames
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count
-        errors =  sum(sum(rxbits ~= bits));
-        
+        errors =  sum(sum(rxbits ~= bits));     
         Results(snr) = Results(snr) + errors;
         
     end
