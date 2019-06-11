@@ -48,11 +48,23 @@ for frame = 1:P.NumberOfFrames
     
     frame
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    bits = randi([0 1],TX,P.NumberOfBits); % Random Data, High rate mode
+    switch P.Mode
+        case 'HighRate'
+            bits = randi([0 1],TX,P.NumberOfBits); % Random Data, High rate mode  
+            % Add Frame Quality Indicator (bonus)
+            bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
+        case 'HighDiversity'
+            bits = randi([0 1],1,P.NumberOfBits); % Few data, redundancy
+            % Duplicate for each antenna
+            bits_dupl = ones(TX,1)*bits;
+            % Add Frame Quality Indicator (bonus)
+            bits_ind = [bits_dupl randi([0 1],TX,P.Q_Ind)];
+        otherwise
+            disp('Mode not supported');
+    end
     
-    % Add Frame Quality Indicator (bonus)
-    bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
-    
+
+
     % Convolutional encoding
     encoded_bits = zeros(TX,NbTXBits);
     for t=1:TX
@@ -93,7 +105,6 @@ for frame = 1:P.NumberOfFrames
         case 'Multipath'
             himp = sqrt(1/2)* (randn(RX,TX,P.ChannelLength) +...
                             1i * randn(RX,TX,P.ChannelLength));
-
         otherwise
             disp('Channel not supported')
     end
@@ -147,7 +158,7 @@ for frame = 1:P.NumberOfFrames
             case 'Multipath'
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                himp_perm = zeros(RX,TX,P.RakeFingers);
+                himp_perm = zeros(RX,P.RakeFingers,TX);
                                
                 % Separation between antennas ? How to get himp ?
                 for r = 1:RX
@@ -179,6 +190,11 @@ for frame = 1:P.NumberOfFrames
                     case 'ZF'
                         % Zero Forcing Detector
                         desp_bits = pinv(H) * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
+                        
+                        if strcmp(P.Mode,'HighDiversity')
+                            desp_bits = sum(desp_bits,1); %summing for diversity
+                        end
+                        
                         % Hard Decision
                         desp_bits = desp_bits < 0;
 
@@ -186,7 +202,12 @@ for frame = 1:P.NumberOfFrames
                         % MMSE
                         Ps = 1 / (SNRlin);
                         G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
-                        desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);                
+                        desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
+                        
+                        if strcmp(P.Mode,'HighDiversity')
+                            desp_bits = sum(desp_bits,1); %summing for diversity
+                        end
+                        
                         % Hard Decision
                         desp_bits = desp_bits < 0;
 
@@ -215,23 +236,37 @@ for frame = 1:P.NumberOfFrames
                 disp('Source Encoding not supported')
         end
 
-        % UN-PN
-        unPN_symbols = zeros(TX, NbTXBits);
-        for t=1:TX
-            unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
+        if strcmp(P.Mode,'HighRate')
+            % UN-PN
+            unPN_symbols = zeros(TX, NbTXBits);
+            for t=1:TX
+                unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
+            end
+
+            % De-interleaver
+            unPN_symbols=double(unPN_symbols);   
+            if strcmp(P.Interleaving, 'On')
+               unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+            end    
+
+            % Decoding Viterbi
+            decoded_bits = zeros(TX,NbTXBits/2);
+            for t = 1:TX
+                decoded_bits(t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
+            end
+        else % Diversity mode
+            % UN-PN
+            unPN_symbols = xor(PNSequence, desp_bits); % TODO add user loop here
+            % De-interleaver
+            unPN_symbols=double(unPN_symbols);   
+            if strcmp(P.Interleaving, 'On')
+               unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+            end    
+
+            % Decoding Viterbi
+            decoded_bits = convDec(unPN_symbols.').'; % TODO, beurk beurk no??
         end
         
-        % De-interleaver
-        unPN_symbols=double(unPN_symbols);   
-        if strcmp(P.Interleaving, 'On')
-           unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
-        end    
-        
-        % Decoding Viterbi
-        decoded_bits = zeros(TX,NbTXBits/2);
-        for t = 1:TX
-            decoded_bits(t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
-        end
         
         % Remove the 8 bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number

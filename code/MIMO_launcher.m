@@ -25,7 +25,7 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 2;
-P.TXperUser     = 2;
+P.TXperUser     = 1;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
@@ -33,7 +33,8 @@ P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 % Only applies for multipath
 P.ChannelLength = 3; 
 P.RakeFingers = 2; 
-P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
+P.Detector = 'MMSE'; % 'ZF', 'MMSE', 'SIC'
+P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
@@ -49,12 +50,16 @@ if (P.RakeFingers > P.ChannelLength)
     error('Fingers has to be smaller or equal to channels !')
 end
 
+if (strcmp(P.Detector, 'SIC') && strcmp(P.Mode,'HighDiversity'))
+    error('High diversity mode has not been implemented with SIC !')
+end    
+
 %% Simulation
 BER = MIMOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath')
-    simlab = sprintf('%s - Paths: %d - TX/RX : %d/%d - Fingers : %d - Users: %d' ,...
-         P.ChannelType,P.ChannelLength,P.TXperUser,P.RXperUser,P.RakeFingers,P.CDMAUsers);
+    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d\nPaths: %d - Fingers : %d \n%s mode - Users: %d' ,...
+         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.ChannelLength,P.RakeFingers,P.Mode,P.CDMAUsers);
 else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
