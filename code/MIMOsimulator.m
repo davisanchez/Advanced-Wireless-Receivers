@@ -97,17 +97,17 @@ for frame = 1:P.NumberOfFrames
         otherwise
             disp('Channel not supported')
     end
-     %Normalization with Euclidean norm along third axis
+    %Normalization with Euclidean norm along third axis
     himp = himp./vecnorm(himp, 2, 3);
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Simulation
     
     switch P.ChannelType
-        case {'AWGN','ByPass'}
+        case 'AWGN'
             snoise = (randn(1,NumberOfChips) + ...
                       1i* randn(1,NumberOfChips) );
-        case {'Multipath','Fading'}
+        case 'Multipath'
             snoise = (randn(RX,TX,NumberOfChipsRX) + ...
                       1i* randn(RX,TX,NumberOfChipsRX) );    
     end
@@ -147,67 +147,78 @@ for frame = 1:P.NumberOfFrames
             case 'Multipath'
                 % Despreading
                 rxsymbols = zeros(RX,P.RakeFingers,NbTXBits); % TODO diversity or High rate possibility???
-                
+                himp_perm = zeros(RX,TX,P.RakeFingers);
+                               
                 % Separation between antennas ? How to get himp ?
                 for r = 1:RX
+                    % Order the best combination of fingers (all contribution
+                    % are combiend and unseparable !
+                    [~,ind] = maxk(sum(abs(himp(r,:,:)),2),P.RakeFingers,3);
+                    ind = squeeze(ind);
+                    % Permute corresponding elements of himp for later
+                    % calculation
+                    himp_perm(r,:,:) = permute(himp(r,:,ind), [1,3,2]);
+                    
                     for finger = 1:P.RakeFingers   
                         if strcmp(P.ChannelType,'Multipath')
                             % Despreading
                             rxsymbols(r,finger,:) = HadamSequence.'*reshape(...
-                                y(r,finger:finger+NumberOfChips-1),...
+                                y(r,ind(finger):ind(finger)+NumberOfChips-1),...
                                 P.HadLen, NbTXBits);
                         end
                     end
                 end
-            otherwise
-                disp('Source Encoding not supported')
-        end
-        % We permute the himp to combine such that the H-1 will
-        % cancel out the interference inside rxsymbols
-        H = reshape(permute(himp(:,:,1:P.RakeFingers), [1,3,2]), P.RakeFingers*P.RXperUser, P.TXperUser);
                 
-        % MIMO detector
-        switch P.Detector
-            case 'ZF'
-                % Zero Forcing Detector
-                desp_bits = pinv(H) * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
-                % Hard Decision
-                desc_bits = desp_bits < 0;
+                % We permute the himp to combine such that the H-1 will
+                % cancel out the interference inside rxsymbols
+                H = reshape(himp_perm,...
+                    P.RakeFingers*P.RXperUser, P.TXperUser);
                 
-            case 'MMSE'
-                % MMSE
-                Ps = 1 / (SNRlin);
-                G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
-                desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);                
-                % Hard Decision
-                desc_bits = desp_bits < 0;
-                
-            case 'SIC'
-                H_k = H;
-                y_k = reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
-                for k = 1:P.TXperUser
-                    
-                    e = [1, zeros(1, P.TXperUser - k)];
-                    g = e * pinv(H_k);
-                    
-                    % Estimate signal
-                    s_hat = (g*y_k) < 0;
-                    y_k = y_k - H(:, k)*s_hat;
-                    
-                    % Remove k-th column of H_k
-                    H_k = H_k(:, 2:end);
-                    
-                    %
-                    desc_bits(k,:) = s_hat;
+                % MIMO detector
+                switch P.Detector
+                    case 'ZF'
+                        % Zero Forcing Detector
+                        desp_bits = pinv(H) * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
+                        % Hard Decision
+                        desp_bits = desp_bits < 0;
+
+                    case 'MMSE'
+                        % MMSE
+                        Ps = 1 / (SNRlin);
+                        G = (H' * H + (P.TXperUser / Ps) * eye(P.TXperUser)) \ H'; %N_T lower rate streams = TXperuser
+                        desp_bits = G * reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);                
+                        % Hard Decision
+                        desp_bits = desp_bits < 0;
+
+                    case 'SIC'
+                        H_k = H;
+                        y_k = reshape(rxsymbols, P.RakeFingers*P.RXperUser, []);
+                        for k = 1:P.TXperUser
+
+                            e = [1, zeros(1, P.TXperUser - k)];
+                            g = e * pinv(H_k);
+
+                            % Estimate signal
+                            s_hat = (g*y_k) < 0;
+                            y_k = y_k - H(:, k)*s_hat;
+
+                            % Remove k-th column of H_k
+                            H_k = H_k(:, 2:end);
+
+                            %
+                            desp_bits(k,:) = s_hat;
+                        end
+                    otherwise
+                        disp('Detector not supported')
                 end
             otherwise
-                disp('Detector not supported')
+                disp('Source Encoding not supported')
         end
 
         % UN-PN
         unPN_symbols = zeros(TX, NbTXBits);
         for t=1:TX
-            unPN_symbols(t,:) = xor(PNSequence, desc_bits(t,:)); % TODO add user loop here
+            unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
         end
         
         % De-interleaver

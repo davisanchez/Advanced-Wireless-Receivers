@@ -11,7 +11,7 @@ clc; clear all; close all;
 
 %% Parameters
 P.NumberOfFrames = 20;
-P.SNRRange = -50:1:-5; % SNR Range to simulate in dB
+P.SNRRange = -50:1:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
 P.Q_Ind = 12;
@@ -20,23 +20,20 @@ P.K = 9; % Length of convolutional encoder
 P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
-P.Interleaving = 'On'; % 'On' or 'Off'
+P.Interleaving = 'Off'; % 'On' or 'Off'
 
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 2;
-P.TXperUser     = 2;
+P.TXperUser     = 1;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
-% Only applies for fading and multipath
-P.ChannelLength = 5; 
-P.RakeFingers = 5; 
-P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-
-% Only applies for fading
-P.CoherenceTime = 19; % A thousandth of a second 
+% Only applies for multipath
+P.ChannelLength = 3; 
+P.RakeFingers = 2; 
+P.Detector = 'SIC'; % 'ZF', 'MMSE', 'SIC'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)

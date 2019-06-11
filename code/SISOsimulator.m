@@ -167,7 +167,7 @@ for frame = 1:P.NumberOfFrames
                 % Summing over all fingers to get some diversity
                 desp_bits = sum(rxsymbols,1) < 0; 
                 
-            otherwise,
+            otherwise
                 disp('Source Encoding not supported')
         end
         
