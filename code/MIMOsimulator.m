@@ -104,7 +104,7 @@ for frame = 1:P.NumberOfFrames
     % Simulation
     
     switch P.ChannelType
-        case 'AWGN'
+        case {'ByPass', 'AWGN'}
             snoise = (randn(1,NumberOfChips) + ...
                       1i* randn(1,NumberOfChips) );
         case 'Multipath'

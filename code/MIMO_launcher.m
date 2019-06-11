@@ -20,20 +20,20 @@ P.K = 9; % Length of convolutional encoder
 P.ConvSeq = [753 561]; % Rate 1/2
 P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
-P.Interleaving = 'Off'; % 'On' or 'Off'
+P.Interleaving = 'On'; % 'On' or 'Off'
 
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
-P.RXperUser     = 2;
+P.RXperUser     = 1;
 P.TXperUser     = 1;
 
 %% Channel and Detectors
-P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
+P.ChannelType   = 'ByPass'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
 P.ChannelLength = 3; 
 P.RakeFingers = 2; 
-P.Detector = 'SIC'; % 'ZF', 'MMSE', 'SIC'
+P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
@@ -41,7 +41,7 @@ if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
 end
 
 if ((strcmp(P.ChannelType, 'ByPass') || strcmp(P.ChannelType, 'AWGN')) ...
-        && P.RXperUser > 1 && P.TXperUser > 1)
+        && (P.RXperUser > 1 || P.TXperUser > 1))
     error('ByPass or AWGN make no sense with MIMO ! (destructive interferences)')
 end
 
