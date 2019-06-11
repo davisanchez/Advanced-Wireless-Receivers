@@ -11,7 +11,7 @@
 function BER = SISOsimulator(P)
     
     % Generate the spreading sequence
-    HadamardMatrix = hadamard(P.HadLen)/sqrt(P.HadLen);    % Normalization      
+    HadamardMatrix = hadamard(P.HadLen);     
     
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;

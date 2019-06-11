@@ -10,7 +10,7 @@
 clc; clear all; % close all;
 
 %% Parameters
-P.NumberOfFrames = 20;
+P.NumberOfFrames = 100;
 P.SNRRange = -50:1:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
@@ -25,15 +25,15 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 2;
-P.TXperUser     = 1;
+P.TXperUser     = 2;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 3; 
-P.RakeFingers = 2; 
-P.Detector = 'MMSE'; % 'ZF', 'MMSE', 'SIC'
+P.ChannelLength = 2; 
+P.RakeFingers = 1; 
+P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
 P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
