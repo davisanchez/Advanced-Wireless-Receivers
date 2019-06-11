@@ -119,8 +119,8 @@ for frame = 1:P.NumberOfFrames
             snoise = (randn(1,NumberOfChips) + ...
                       1i* randn(1,NumberOfChips) );
         case 'Multipath'
-            snoise = (randn(RX,NumberOfChipsRX) + ...
-                      1i* randn(RX,NumberOfChipsRX) );    
+            snoise = (randn(RX,TX,NumberOfChipsRX) + ...
+                      1i* randn(RX,TX,NumberOfChipsRX) );    
     end
     
     % SNR Range
@@ -139,10 +139,10 @@ for frame = 1:P.NumberOfFrames
                 y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
                 for r = 1:RX
                     for t = 1:TX
-                        y(r,:) = y(r,:) + conv(squeeze(waveform(t,:)),squeeze(himp(r,t,:)));% + squeeze(noise(r,t,:)).';  
+                        y(r,:) = y(r,:) + conv(squeeze(waveform(t,:)),squeeze(himp(r,t,:))) + squeeze(noise(r,t,:)).';  
                     end
                 end
-                y = y + noise;
+                %y = y + noise;
             otherwise
                 disp('Channel not supported')
         end
