@@ -10,7 +10,7 @@
 clc; clear all; % close all;
 
 %% Parameters
-P.NumberOfFrames = 100;
+P.NumberOfFrames = 5;
 P.SNRRange = -50:1:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
@@ -23,7 +23,7 @@ P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 P.Interleaving = 'On'; % 'On' or 'Off'
 
 %% Users and Antennas
-P.CDMAUsers     = 1; %TODO
+P.CDMAUsers     = 2; %TODO
 P.RXperUser     = 2;
 P.TXperUser     = 2;
 

@@ -26,8 +26,11 @@ function BER = MIMOsimulator(P)
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
-                           
-    PNSequence = step(LongCode).';
+     
+    for user=1:P.CDMAUsers                       
+        PNSequence(user,:) = step(LongCode).';
+    end
+    %change with each user
     
     % Channel
     switch P.ChannelType
@@ -51,6 +54,7 @@ for frame = 1:P.NumberOfFrames
     switch P.Mode
         case 'HighRate'
             bits = randi([0 1],TX,P.NumberOfBits); % Random Data, High rate mode  
+            
             % Add Frame Quality Indicator (bonus)
             bits_ind = [bits randi([0 1],TX,P.Q_Ind)];
         case 'HighDiversity'
@@ -66,9 +70,11 @@ for frame = 1:P.NumberOfFrames
 
 
     % Convolutional encoding
-    encoded_bits = zeros(TX,NbTXBits);
+    encoded_bits = zeros(TX,NbTXBits, P.CDMAUsers);
     for t=1:TX
-        encoded_bits(t,:) = convEnc(bits_ind(t,:).').';
+        for user=1:P.CDMAUsers
+            encoded_bits(t,:,user) = convEnc(bits_ind(t,:).').';
+        end
     end
     
     % Symbol repetition
@@ -78,24 +84,32 @@ for frame = 1:P.NumberOfFrames
     
     % Interleaver
     if strcmp(P.Interleaving, 'On')
-        encoded_bits=matintrlv(encoded_bits.',32,12).';  % TODO Magick numbers
+        for user=1:P.CDMAUsers
+            encoded_bits(:,:,user)=matintrlv(encoded_bits(:,:,user).',32,12).';  % TODO Magick numbers
+        end
     end
     
     % Pulse Shape (PNSequence)
-    PN_symbols = zeros(TX, NbTXBits);
+    PN_symbols = zeros(TX, NbTXBits, P.CDMAUsers);
     for t=1:TX
-        PN_symbols(t,:) = xor(PNSequence, encoded_bits(t,:)); % TODO add user loop here
-    end
+        for user=1:P.CDMAUsers
+            PN_symbols(t,:,user) = xor(PNSequence(user), encoded_bits(t,:,user)); % TODO add user loop here
+        end
+    end 
 
     % Modulation : BPSK
-    symbols = -(2*PN_symbols - 1);
+    symbols = -(2*PN_symbols - 1); 
     
     % Spreading with Hadamard
-    symbol_spread = zeros(TX,P.HadLen, NbTXBits);
+    symbol_spread = zeros(TX,P.HadLen, NbTXBits, P.CDMAUsers);
     for t = 1:TX
-        symbol_spread(t,:,:) = HadamSequence * symbols(t,:);
-    end   
-    waveform = reshape(symbol_spread,TX,NumberOfChips); 
+        for user=1:P.CDMAUsers
+            symbol_spread(t,:,:,user) = HadamSequence * symbols(t,:,user);
+        end
+    end  
+    %for user=1:P.CDMAUsers
+        waveform = reshape(symbol_spread,TX,NumberOfChips,P.CDMAUsers); 
+    %end
  
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Channel
@@ -136,10 +150,12 @@ for frame = 1:P.NumberOfFrames
             case 'AWGN'
                 y = waveform * himp + noise;  
             case 'Multipath'
-                y = zeros(RX,NumberOfChipsRX); %Normally add the users here!
+                y = zeros(RX,NumberOfChipsRX, P.CDMAUsers); %Normally add the users here!
                 for r = 1:RX
                     for t = 1:TX
-                        y(r,:) = y(r,:) + conv(squeeze(waveform(t,:)),squeeze(himp(r,t,:))) + squeeze(noise(r,t,:)).';  
+                        for user=1:P.CDMAUsers
+                            y(r,:,user) = y(r,:,user) + conv(squeeze(waveform(t,:,user)),squeeze(himp(r,t,:))) + squeeze(noise(r,t,:)).';
+                        end
                     end
                 end
                 %y = y + noise;
@@ -239,46 +255,57 @@ for frame = 1:P.NumberOfFrames
 
         if strcmp(P.Mode,'HighRate')
             % UN-PN
-            unPN_symbols = zeros(TX, NbTXBits);
+            unPN_symbols = zeros(TX, NbTXBits, P.CDMAUsers);
             for t=1:TX
-                unPN_symbols(t,:) = xor(PNSequence, desp_bits(t,:)); % TODO add user loop here
+                for user=1:P.CDMAUsers
+                    unPN_symbols(t,:, user) = xor(PNSequence(user,:), desp_bits(t,:)); % TODO add user loop here
+                end
             end
 
             % De-interleaver
             unPN_symbols=double(unPN_symbols);   
             if strcmp(P.Interleaving, 'On')
-               unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
+                for user=1:P.CDMAUsers
+                    unPN_symbols(:,:,user)=matdeintrlv(unPN_symbols(:,:,user).',32,12).';
+                end
             end    
 
             % Decoding Viterbi
-            decoded_bits = zeros(TX,NbTXBits/2);
+            decoded_bits = zeros(TX,NbTXBits/2,P.CDMAUsers);
             for t = 1:TX
-                decoded_bits(t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
+                for user=1:P.CDMAUsers
+                    decoded_bits(t,:,user) = convDec(unPN_symbols(t,:,user).').'; % TODO, beurk beurk no??
+                end
             end
         else % Diversity mode
             % UN-PN
-            unPN_symbols = xor(PNSequence, desp_bits); % TODO add user loop here
-            % De-interleaver
-            unPN_symbols=double(unPN_symbols);   
-            if strcmp(P.Interleaving, 'On')
-               unPN_symbols=matdeintrlv(unPN_symbols.',32,12).';
-            end    
+            for user=1:P.CDMAUsers
+                unPN_symbols(:,:,user) = xor(PNSequence(:,user), desp_bits); % TODO add user loop here
+                % De-interleaver
+                unPN_symbols=double(unPN_symbols);   
+                if strcmp(P.Interleaving, 'On')
+                    unPN_symbols(:,:,user)=matdeintrlv(unPN_symbols(:,:,user).',32,12).';
+                end    
 
-            % Decoding Viterbi
-            decoded_bits = convDec(unPN_symbols.').'; % TODO, beurk beurk no??
+                % Decoding Viterbi
+                decoded_bits = convDec(unPN_symbols(:,:,user).').'; % TODO, beurk beurk no??
+            end
         end
         
         
         % Remove the 8 bit encoding trail
-        rxbits = decoded_bits(:,1:end-P.Q_Ind-8); % TODO magick number
+        for user=1:P.CDMAUsers
+            rxbits = decoded_bits(:,1:end-P.Q_Ind-8,user); % TODO magick number
+        
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % BER count
         errors =  sum(sum(rxbits ~= bits));
         Results(ss) = Results(ss) + errors;
+        end
         
     end
 end
 
-BER = Results/(P.NumberOfBits*P.NumberOfFrames*TX);
+BER = Results/(P.NumberOfBits*P.NumberOfFrames*TX*P.CDMAUsers); %NOT SURE
 end
