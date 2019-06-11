@@ -7,7 +7,7 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all; close all;
+clc; clear all; % close all;
 
 %% Parameters
 P.NumberOfFrames = 20;
@@ -24,11 +24,11 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 
 %% Users and Antennas
 P.CDMAUsers     = 1; %TODO
-P.RXperUser     = 1;
-P.TXperUser     = 1;
+P.RXperUser     = 2;
+P.TXperUser     = 2;
 
 %% Channel and Detectors
-P.ChannelType   = 'ByPass'; % 'Multipath', 'AWGN', 'ByPass'
+P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
 P.ChannelLength = 3; 
