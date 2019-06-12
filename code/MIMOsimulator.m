@@ -210,9 +210,9 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
                             
                             switch P.Decision
                                 case 'Hard'
-                                    hard_desc_bits(user,:,:) = desp_bits < 0;
+                                    decision_bits(user,:,:) = desp_bits < 0;
                                 otherwise
-                                    hard_desc_bits(user,:,:) = real(desp_bits);
+                                    decision_bits(user,:,:) = real(desp_bits);
                             end
                             
                         case 'MMSE'
@@ -227,9 +227,9 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
                             
                             switch P.Decision
                                 case 'Hard'
-                                    hard_desc_bits(user,:,:)= desp_bits < 0;
+                                    decision_bits(user,:,:)= desp_bits < 0;
                                 otherwise
-                                    hard_desc_bits(user,:,:)= real(desp_bits);
+                                    decision_bits(user,:,:)= real(desp_bits);
                             end
                             
                         case 'SIC'
@@ -249,7 +249,7 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
                                 
                                 switch P.Decision %not good, to complete
                                     case 'Hard'
-                                        hard_desc_bits(user,k,:) = s_hat;
+                                        decision_bits(user,k,:) = s_hat;
                                     otherwise
                                 end
                             end
@@ -269,9 +269,9 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
                 for t=1:TX
                     switch P.Decision
                         case 'Hard'
-                            unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,t,:)).');
+                            unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(decision_bits(user,t,:)).');
                         otherwise
-                            unPN_symbols(t,:) = (2*PNSequence(user,:)-1).* squeeze(hard_desc_bits(user,t,:)).';
+                            unPN_symbols(t,:) = (2*PNSequence(user,:)-1).* squeeze(decision_bits(user,t,:)).';
                     end
                 end
                 
@@ -291,9 +291,9 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
                 % UN-PN
                 switch P.Decision
                     case 'Hard'
-                        unPN_symbols = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,1,:)).');
+                        unPN_symbols = xor(PNSequence(user,:), squeeze(decision_bits(user,1,:)).');
                     otherwise
-                         unPN_symbols = (2*PNSequence(user,:)-1) .* squeeze(hard_desc_bits(user,1,:)).';
+                         unPN_symbols = (2*PNSequence(user,:)-1) .* squeeze(decision_bits(user,1,:)).';
                 end
                 % De-interleaver
                 unPN_symbols=double(unPN_symbols);
