@@ -85,7 +85,7 @@ for frame = 1:P.NumberOfFrames
     % Interleaver
     if strcmp(P.Interleaving, 'On')
         for user=1:P.CDMAUsers
-            encoded_bits(:,:,user)=matintrlv(encoded_bits(:,:,user).',32,12).';  % TODO Magick numbers
+            encoded_bits(:,:,user)=matintrlv(encoded_bits(:,:,user).',P.IntrlvRows,NbTXBits/P.IntrlvRows).';
         end
     end
     
