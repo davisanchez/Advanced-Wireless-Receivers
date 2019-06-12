@@ -20,7 +20,7 @@ function BER = MIMOsimulator(P)
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
-    HadamSequence     = HadamardMatrix(:,42); % 42 but could pick anything % TODO Magick numbers
+    HadamSequence  = HadamardMatrix(:,randperm(P.HadLen,P.CDMAUsers)).';
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
                                'Mask', P.SequenceMask, ...
@@ -86,10 +86,12 @@ for frame = 1:P.NumberOfFrames
     
     % Pulse Shape (PNSequence)
     PN_symbols = zeros(P.CDMAUsers,TX, NbTXBits);
-    for t=1:TX
-        PN_symbols(user,t,:) = xor(PNSequence(user,:), squeeze(encoded_bits(user,t,:)).'); % TODO add user loop here
+    for user = 1:P.CDMAUsers
+        for t=1:TX
+            PN_symbols(user,t,:) = xor(PNSequence(user,:), squeeze(encoded_bits(user,t,:)).'); % TODO add user loop here
+        end
     end
-
+    
     % Modulation : BPSK
     symbols = -(2*PN_symbols - 1); 
     
@@ -97,7 +99,7 @@ for frame = 1:P.NumberOfFrames
     symbol_spread = zeros(P.CDMAUsers,TX,P.HadLen, NbTXBits);
     for user=1:P.CDMAUsers
         for t = 1:TX
-            symbol_spread(user,t,:,:) = HadamSequence .* symbols(user,t,:);
+            symbol_spread(user,t,:,:) = HadamSequence(user,:) .* symbols(user,t,:);
         end
     end   
     waveform = reshape(symbol_spread,P.CDMAUsers,TX,NumberOfChips); 
@@ -184,7 +186,7 @@ for frame = 1:P.NumberOfFrames
                         for finger = 1:P.RakeFingers
                             if strcmp(P.ChannelType,'Multipath')
                                 % Despreading
-                                rxsymbols(user,r,finger,:) = HadamSequence.' * reshape(...
+                                rxsymbols(user,r,finger,:) = HadamSequence(user,:) * reshape(...
                                     y(user,r,ind(finger):ind(finger)+NumberOfChips-1),...
                                     P.HadLen, NbTXBits);
                             end
@@ -251,6 +253,7 @@ for frame = 1:P.NumberOfFrames
         end
 
         if strcmp(P.Mode,'HighRate')
+            decoded_bits = zeros(P.CDMAUsers,TX,NbTXBits/2);
             for user=1:P.CDMAUsers
                 % UN-PN
                 unPN_symbols = zeros(TX, NbTXBits);
@@ -265,7 +268,6 @@ for frame = 1:P.NumberOfFrames
                 end
                 
                 % Decoding Viterbi
-                decoded_bits = zeros(P.CDMAUsers,TX,NbTXBits/2);
                 for t = 1:TX
                     decoded_bits(user,t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
                 end

@@ -25,17 +25,17 @@ P.IntrlvRows = 32; % For a rate of 9600bps
 
 %% Users and Antennas
 P.CDMAUsers     = 2; %TODO
-P.RXperUser     = 2;
-P.TXperUser     = 2;
+P.RXperUser     = 1;
+P.TXperUser     = 1;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 5; 
-P.RakeFingers = 5; 
+P.ChannelLength = 1; 
+P.RakeFingers = 1; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
+P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
