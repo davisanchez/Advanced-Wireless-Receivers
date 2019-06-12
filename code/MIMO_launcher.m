@@ -60,8 +60,8 @@ end
 BER = MIMOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath')
-    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d\nPaths: %d - Fingers : %d - Users: %d' ,...
-         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.ChannelLength,P.RakeFingers,P.CDMAUsers);
+    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d - Users: %d\nPaths: %d - Fingers : %d - %s Decision' ,...
+         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.CDMAUsers,P.ChannelLength,P.RakeFingers,P.Decision);
 else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
