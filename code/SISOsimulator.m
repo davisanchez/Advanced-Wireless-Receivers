@@ -59,7 +59,7 @@ for frame = 1:P.NumberOfFrames
     
     % Interleaver
     if strcmp(P.Interleaving, 'On')
-        encoded_bits=matintrlv(encoded_bits.',32,12).';  % TODO Magick numbers   
+        encoded_bits=matintrlv(encoded_bits.',P.IntrlvRows,NbTXBits/P.IntrlvRows).';  
     end
     
     % Pulse Shape (PNSequence)
