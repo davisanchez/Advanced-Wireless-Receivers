@@ -279,6 +279,9 @@ for frame = 1:P.NumberOfFrames
         
     end
 end
-
-BER = Results/(P.NumberOfBits*P.NumberOfFrames*TX);
+if strcmp(P.Mode,'HighRate')
+    BER = Results/(P.NumberOfBits*P.NumberOfFrames*TX);
+else
+    BER = Results/(P.NumberOfBits*P.NumberOfFrames);
+end
 end
