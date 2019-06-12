@@ -7,11 +7,11 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all; % close all;
-
+clc; clear all;  close all;
+rng(2)
 %% Parameters
-P.NumberOfFrames = 100;
-P.SNRRange = -50:1:20; % SNR Range to simulate in dB
+P.NumberOfFrames = 5;
+P.SNRRange = -50:10:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
 P.Q_Ind = 12;
@@ -32,7 +32,7 @@ P.TXperUser     = 2;
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 2; 
+P.ChannelLength = 1; 
 P.RakeFingers = 1; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
 P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
