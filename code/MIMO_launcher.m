@@ -22,20 +22,21 @@ P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 P.Interleaving = 'On'; % 'On' or 'Off'
 P.IntrlvRows = 32; % For a rate of 9600bps
+P.Decision='Soft'; 
 
 %% Users and Antennas
-P.CDMAUsers     = 2; %TODO
-P.RXperUser     = 1;
-P.TXperUser     = 1;
+P.CDMAUsers     = 2;
+P.RXperUser     = 2;
+P.TXperUser     = 2;
 
 %% Channel and Detectors
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 1; 
-P.RakeFingers = 1; 
+P.ChannelLength = 4; 
+P.RakeFingers = 3; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
+P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)

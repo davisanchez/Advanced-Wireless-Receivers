@@ -12,7 +12,6 @@ function BER = MIMOsimulator(P)
 
     RX = P.RXperUser;
     TX = P.TXperUser;
-    %NUsers = P.CDMAUsers;
     
     % Generate the spreading sequences
     HadamardMatrix = hadamard(P.HadLen);     
@@ -153,7 +152,6 @@ for frame = 1:P.NumberOfFrames
                         end
                     end
                 end
-                %y = y + noise;
             otherwise
                 disp('Channel not supported')
         end
@@ -164,7 +162,6 @@ for frame = 1:P.NumberOfFrames
             case {'AWGN','ByPass'}
                 % Despreading
                 rxsymbols = conj(himp).*HadamSequence.'*reshape(y, P.HadLen, NbTXBits);
-                
                 desp_bits = rxsymbols < 0;
                 
             case 'Multipath'
@@ -210,8 +207,12 @@ for frame = 1:P.NumberOfFrames
                                 desp_bits = sum(desp_bits,1); %summing for diversity
                             end
                             
-                            % Hard Decision
-                            hard_desc_bits(user,:,:) = desp_bits < 0;
+                            switch P.Decision
+                                case 'Hard'
+                                    hard_desc_bits(user,:,:) = desp_bits < 0;
+                                otherwise
+                                    hard_desc_bits(user,:,:) = real(desp_bits);
+                            end
                             
                         case 'MMSE'
                             % MMSE
@@ -223,8 +224,12 @@ for frame = 1:P.NumberOfFrames
                                 desp_bits = sum(desp_bits,1); %summing for diversity
                             end
                             
-                            % Hard Decision
-                            hard_desc_bits(user,:,:)= desp_bits < 0;
+                            switch P.Decision
+                                case 'Hard'
+                                    hard_desc_bits(user,:,:)= desp_bits < 0;
+                                otherwise
+                                    hard_desc_bits(user,:,:)= real(desp_bits);
+                            end
                             
                         case 'SIC'
                             H_k = H;
@@ -241,8 +246,11 @@ for frame = 1:P.NumberOfFrames
                                 % Remove k-th column of H_k
                                 H_k = H_k(:, 2:end);
                                 
-                                %
-                                hard_desc_bits(user,k,:) = s_hat;
+                                switch P.Decision %not good, to complete
+                                    case 'Hard'
+                                        hard_desc_bits(user,k,:) = s_hat;
+                                    otherwise
+                                end
                             end
                         otherwise
                             disp('Detector not supported')
@@ -258,7 +266,12 @@ for frame = 1:P.NumberOfFrames
                 % UN-PN
                 unPN_symbols = zeros(TX, NbTXBits);
                 for t=1:TX
-                    unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,t,:)).'); % TODO add user loop here
+                    switch P.Decision
+                        case 'Hard'
+                            unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,t,:)).');
+                        otherwise
+                            unPN_symbols(t,:) = (2*PNSequence(user,:)-1).* squeeze(hard_desc_bits(user,t,:)).';
+                    end
                 end
                 
                 % De-interleaver
@@ -269,13 +282,18 @@ for frame = 1:P.NumberOfFrames
                 
                 % Decoding Viterbi
                 for t = 1:TX
-                    decoded_bits(user,t,:) = convDec(unPN_symbols(t,:).').'; % TODO, beurk beurk no??
+                    decoded_bits(user,t,:) = convDec(unPN_symbols(t,:).').';
                 end
             end
         else % Diversity mode
             for user=1:P.CDMAUsers
                 % UN-PN
-                unPN_symbols = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,1,:)).'); % TODO add user loop here
+                switch P.Decision
+                    case 'Hard'
+                        unPN_symbols = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,1,:)).');
+                    otherwise
+                         unPN_symbols = (2*PNSequence(user,:)-1) .* squeeze(hard_desc_bits(user,1,:)).';
+                end
                 % De-interleaver
                 unPN_symbols=double(unPN_symbols);
                 if strcmp(P.Interleaving, 'On')
@@ -283,14 +301,14 @@ for frame = 1:P.NumberOfFrames
                 end
                 
                 % Decoding Viterbi
-                decoded_bits(user,1,:) = convDec(unPN_symbols.').'; % TODO, beurk beurk no??
+                decoded_bits(user,1,:) = convDec(unPN_symbols.').';
             end
         end
         
         
         % Remove the 8 bit encoding trail
         for user=1:P.CDMAUsers
-            rxbits(user,:,:) = decoded_bits(user,:,1:end-P.Q_Ind-8); % TODO magick number
+            rxbits(user,:,:) = decoded_bits(user,:,1:end-P.Q_Ind-8);
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
