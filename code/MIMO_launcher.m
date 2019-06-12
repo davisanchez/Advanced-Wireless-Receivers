@@ -22,9 +22,10 @@ P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 P.Interleaving = 'On'; % 'On' or 'Off'
 P.IntrlvRows = 32; % For a rate of 9600bps
+P.Decision='Soft'; 
 
 %% Users and Antennas
-P.CDMAUsers     = 2; %TODO
+P.CDMAUsers     = 1; %TODO
 P.RXperUser     = 2;
 P.TXperUser     = 2;
 

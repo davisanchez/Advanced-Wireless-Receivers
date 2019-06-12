@@ -87,7 +87,12 @@ for frame = 1:P.NumberOfFrames
     % Pulse Shape (PNSequence)
     PN_symbols = zeros(P.CDMAUsers,TX, NbTXBits);
     for t=1:TX
-        PN_symbols(user,t,:) = xor(PNSequence(user,:), squeeze(encoded_bits(user,t,:)).'); % TODO add user loop here
+        switch P.Decision
+            case 'Hard'
+                PN_symbols(user,t,:) = xor(PNSequence(user,:), squeeze(encoded_bits(user,t,:)).'); % TODO add user loop here
+            otherwise
+                PN_symbols(user,t,:) = (PNSequence(user,:).*squeeze(encoded_bits(user,t,:)).');
+        end
     end
 
     % Modulation : BPSK
@@ -208,8 +213,12 @@ for frame = 1:P.NumberOfFrames
                                 desp_bits = sum(desp_bits,1); %summing for diversity
                             end
                             
-                            % Hard Decision
-                            hard_desc_bits(user,:,:) = desp_bits < 0;
+                            switch P.Decision
+                                case 'Hard'
+                                    hard_desc_bits(user,:,:) = desp_bits < 0;
+                                otherwise
+                                    hard_desc_bits(user,:,:) = real(desp_bits);
+                            end
                             
                         case 'MMSE'
                             % MMSE
@@ -221,8 +230,12 @@ for frame = 1:P.NumberOfFrames
                                 desp_bits = sum(desp_bits,1); %summing for diversity
                             end
                             
-                            % Hard Decision
-                            hard_desc_bits(user,:,:)= desp_bits < 0;
+                            switch P.Decision
+                                case 'Hard'
+                                    hard_desc_bits(user,:,:)= desp_bits < 0;
+                                otherwise
+                                    hard_desc_bits(user,:,:)= real(desp_bits);
+                            end
                             
                         case 'SIC'
                             H_k = H;
@@ -239,8 +252,11 @@ for frame = 1:P.NumberOfFrames
                                 % Remove k-th column of H_k
                                 H_k = H_k(:, 2:end);
                                 
-                                %
-                                hard_desc_bits(user,k,:) = s_hat;
+                                switch P.Decision %not good, to complete
+                                    case 'Hard'
+                                        hard_desc_bits(user,k,:) = s_hat;
+                                    otherwise
+                                end
                             end
                         otherwise
                             disp('Detector not supported')
@@ -255,7 +271,12 @@ for frame = 1:P.NumberOfFrames
                 % UN-PN
                 unPN_symbols = zeros(TX, NbTXBits);
                 for t=1:TX
-                    unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,t,:)).'); % TODO add user loop here
+                    switch P.Decision
+                        case 'Hard'
+                            unPN_symbols(t,:) = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,t,:)).'); % TODO add user loop here
+                        otherwise
+                            unPN_symbols(t,:) = (PNSequence(user,:).* squeeze(hard_desc_bits(user,t,:)).');
+                    end
                 end
                 
                 % De-interleaver
@@ -273,7 +294,12 @@ for frame = 1:P.NumberOfFrames
         else % Diversity mode
             for user=1:P.CDMAUsers
                 % UN-PN
-                unPN_symbols = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,1,:)).'); % TODO add user loop here
+                switch P.Decision
+                    case 'Hard'
+                        unPN_symbols = xor(PNSequence(user,:), squeeze(hard_desc_bits(user,1,:)).'); % TODO add user loop here
+                    otherwise
+                         unPN_symbols = (PNSequence(user,:) .* squeeze(hard_desc_bits(user,1,:)).');
+                end
                 % De-interleaver
                 unPN_symbols=double(unPN_symbols);
                 if strcmp(P.Interleaving, 'On')
