@@ -10,7 +10,7 @@
 clc; clear all; % close all;
 
 %% Parameters
-P.NumberOfFrames = 100;
+P.NumberOfFrames = 5;
 P.SNRRange = -50:1:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
@@ -24,7 +24,7 @@ P.Interleaving = 'On'; % 'On' or 'Off'
 P.IntrlvRows = 32; % For a rate of 9600bps
 
 %% Users and Antennas
-P.CDMAUsers     = 1; %TODO
+P.CDMAUsers     = 2; %TODO
 P.RXperUser     = 2;
 P.TXperUser     = 2;
 
