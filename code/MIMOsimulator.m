@@ -292,7 +292,13 @@ for frame = 1:P.NumberOfFrames
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        rxbits = reshape(rxbits, P.CDMAUsers, P.TXperUser, P.NumberOfBits);
+        switch P.Mode
+            case 'HighRate'
+                rxbits = reshape(rxbits, P.CDMAUsers, P.TXperUser, P.NumberOfBits);
+            case 'HighDiversity'
+                rxbits = reshape(rxbits, P.CDMAUsers, 1, P.NumberOfBits);
+        end
+        %
         for user=1:P.CDMAUsers
             errors =  sum(sum(rxbits(user,:,:) ~= bits(user,:,:)));
             Results(ss) = Results(ss) + errors; %TODO users!!

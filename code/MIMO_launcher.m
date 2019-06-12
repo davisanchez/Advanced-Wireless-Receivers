@@ -32,10 +32,10 @@ P.TXperUser     = 2;
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 1; 
-P.RakeFingers = 1; 
+P.ChannelLength = 5; 
+P.RakeFingers = 5; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
+P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
