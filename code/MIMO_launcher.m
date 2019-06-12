@@ -8,9 +8,9 @@
 % EPFL
 
 clc; clear all;  close all;
-rng(2)
+rng(2) %Random seed selection
 %% Parameters
-P.NumberOfFrames = 5;
+P.NumberOfFrames = 20;
 P.SNRRange = -50:10:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
@@ -22,10 +22,10 @@ P.Rate = length(P.ConvSeq);
 P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
 P.Interleaving = 'On'; % 'On' or 'Off'
 P.IntrlvRows = 32; % For a rate of 9600bps
-P.Decision='Soft'; 
+P.Decision='Hard'; 
 
 %% Users and Antennas
-P.CDMAUsers     = 2;
+P.CDMAUsers     = 1;
 P.RXperUser     = 2;
 P.TXperUser     = 2;
 
@@ -33,10 +33,10 @@ P.TXperUser     = 2;
 P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 
 % Only applies for multipath
-P.ChannelLength = 4; 
-P.RakeFingers = 3; 
+P.ChannelLength = 3; 
+P.RakeFingers = 2; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
+P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
@@ -60,8 +60,8 @@ end
 BER = MIMOsimulator(P);
 
 if strcmp(P.ChannelType, 'Multipath')
-    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d\nPaths: %d - Fingers : %d \n%s mode - Users: %d' ,...
-         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.ChannelLength,P.RakeFingers,P.Mode,P.CDMAUsers);
+    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d\nPaths: %d - Fingers : %d - Users: %d' ,...
+         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.ChannelLength,P.RakeFingers,P.CDMAUsers);
 else
     simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
 end
@@ -69,7 +69,7 @@ end
 %% Plotting
 figure
 semilogy(P.SNRRange,BER,'b.-','DisplayName',simlab)
-
+title([P.Mode,' mode, ',num2str(P.NumberOfFrames),' frames, interleaver ',P.Interleaving]);
 xlabel('SNR','FontSize',12,'FontWeight','bold');
 ylabel('BER','FontSize',12,'FontWeight','bold');
 xlim([min(P.SNRRange) max(P.SNRRange)]);

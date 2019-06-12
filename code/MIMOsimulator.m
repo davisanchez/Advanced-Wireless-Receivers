@@ -29,6 +29,7 @@ function BER = MIMOsimulator(P)
     for user=1:P.CDMAUsers
         PNSequence(user,:) = step(LongCode).';
     end
+    
     % Channel
     switch P.ChannelType
         case 'Multipath'
@@ -44,7 +45,7 @@ trellis = poly2trellis(P.K, P.ConvSeq);
 convEnc = comm.ConvolutionalEncoder(trellis, 'TerminationMethod', 'Terminated');
 convDec = comm.ViterbiDecoder(trellis, 'TerminationMethod', 'Terminated', 'InputFormat','Hard');
 
-for frame = 1:P.NumberOfFrames
+for frame = 1:P.NumberOfFrames/P.CDMAUsers
     
     frame
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -318,11 +319,10 @@ for frame = 1:P.NumberOfFrames
             case 'HighDiversity'
                 rxbits = reshape(rxbits, P.CDMAUsers, 1, P.NumberOfBits);
         end
-        %
+        % Summing errors
         for user=1:P.CDMAUsers
             errors =  sum(sum(rxbits(user,:,:) ~= bits(user,:,:)));
-            Results(ss) = Results(ss) + errors; %TODO users!!
-            
+            Results(ss) = Results(ss) + errors;        
         end
     end
 end
