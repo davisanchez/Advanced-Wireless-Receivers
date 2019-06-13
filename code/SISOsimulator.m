@@ -16,7 +16,7 @@ function BER = SISOsimulator(P)
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
-    HadamSequence     = HadamardMatrix(:,42); % 42 but could pick anything % TODO Magick numbers
+    HadamSequence     = HadamardMatrix(:,42); % 42 but could pick anything
     
     LongCode = comm.PNSequence('Polynomial',[42 7 6 5 3 2 1 0], ...
                                'Mask', P.SequenceMask, ...
