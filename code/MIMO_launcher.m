@@ -7,45 +7,36 @@
 % Telecommunications Circuits Laboratory
 % EPFL
 
-clc; clear all;  close all;
-rng(2) %Random seed selection
+clc; clear all; % close all;
+
 %% Parameters
 P.NumberOfFrames = 10;
-P.SNRRange = -50:10:20; % SNR Range to simulate in dB
-
-P.NumberOfBits = 172; 
-P.Q_Ind = 12;
-P.HadLen = 64; % Length of Hadamard Sequence
-P.K = 9; % Length of convolutional encoder
-P.ConvSeq = [753 561]; % Rate 1/2
+P.SNRRange = -50:10:20;         % SNR Range to simulate in dB
+P.NumberOfBits = 172;           % Number of transmited bits
+P.Q_Ind = 12;                   % Extra bits for encoding
+P.HadLen = 64;                  % Length of Hadamard Sequence
+P.K = 9;                        % Length of convolutional encoder
+P.ConvSeq = [753 561];          % Convolutionnal polynome with rate 1/2
 P.Rate = length(P.ConvSeq);
-P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)]; %Mask for sequence
-P.Interleaving = 'On'; % 'On' or 'Off'
-P.IntrlvRows = 32; % For a rate of 9600bps
-P.Decision='Hard'; 
-
+                                %Mask for sequence
+P.SequenceMask = [1,1,0,0,0,1,1,0,0,0, randi([0 1],1,32)];
+P.Interleaving = 'On';          % 'On' or 'Off'
+P.IntrlvRows = 32;              % For a rate of 9600bps
+P.Decision='Soft';              % Hard or Soft decision for Viterbi decoder
 %% Users and Antennas
-P.CDMAUsers     = 4;
-P.RXperUser     = 2;
-P.TXperUser     = 2;
+P.CDMAUsers     = 4;            % Number of CDMA users
+P.RXperUser     = 2;            % Rx antenna for each Users
+P.TXperUser     = 2;            % Tx antenna for each Users
 
 %% Channel and Detectors
-P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
-
-% Only applies for multipath
-P.ChannelLength = 3; 
+P.ChannelLength = 3;           
 P.RakeFingers = 2; 
-P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
+P.Detector = 'ZF';              % 'ZF', 'MMSE', 'SIC'
+P.Mode = 'HighDiversity';       % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)
     error('Can not have nTx > nRx, with ZF detector');
-end
-
-if ((strcmp(P.ChannelType, 'ByPass') || strcmp(P.ChannelType, 'AWGN')) ...
-        && (P.RXperUser > 1 || P.TXperUser > 1))
-    error('ByPass or AWGN make no sense with MIMO ! (destructive interferences)')
 end
 
 if (P.RakeFingers > P.ChannelLength)
@@ -59,12 +50,8 @@ end
 %% Simulation
 BER = MIMOsimulator(P);
 
-if strcmp(P.ChannelType, 'Multipath')
-    simlab = sprintf('%s, %s Detector - TX/RX : %d/%d - Users: %d\nPaths: %d - Fingers : %d - %s Decision' ,...
-         P.ChannelType,P.Detector,P.TXperUser,P.RXperUser,P.CDMAUsers,P.ChannelLength,P.RakeFingers,P.Decision);
-else
-    simlab = sprintf('%s - Users: %d' ,P.ChannelType,P.CDMAUsers);
-end
+simlab = sprintf('%s, %s Detector - TX/RX : %d/%d - Users: %d\nPaths: %d - Fingers : %d - %s Decision' ,...
+         'Multipath',P.Detector,P.TXperUser,P.RXperUser,P.CDMAUsers,P.ChannelLength,P.RakeFingers,P.Decision);
 
 %% Plotting
 figure
