@@ -288,8 +288,8 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
     end
 end
 if strcmp(P.Mode,'HighRate')
-    BER = mean(Results)/(P.NumberOfBits*P.NumberOfFrames*TX/P.CDMAUsers);
+    BER = mean(Results,1)/(P.NumberOfBits*P.NumberOfFrames*TX/P.CDMAUsers);
 else
-    BER = mean(Results)/(P.NumberOfBits*P.NumberOfFrames/P.CDMAUsers);
+    BER = mean(Results,1)/(P.NumberOfBits*P.NumberOfFrames/P.CDMAUsers);
 end
 end
