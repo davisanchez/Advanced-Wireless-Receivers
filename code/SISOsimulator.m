@@ -13,6 +13,7 @@ function BER = SISOsimulator(P)
     % Generate the spreading sequence
     HadamardMatrix = hadamard(P.HadLen);     
     
+    % Number of transmitted bits
     NbTXBits    = P.Rate*(P.NumberOfBits + P.Q_Ind + P.K-1);
     NumberOfChips  = NbTXBits*P.HadLen;
     
@@ -22,7 +23,8 @@ function BER = SISOsimulator(P)
                                'Mask', P.SequenceMask, ...
                                'InitialConditions', randi([0 1],1,42), ...
                                'SamplesPerFrame', NbTXBits);
-                           
+
+    % Generate a Code for each users                     
     PNSequence = step(LongCode).';
     
     % Channel
@@ -50,12 +52,7 @@ for frame = 1:P.NumberOfFrames
     bits_ind = [bits randi([0 1],1,P.Q_Ind)];
     
     % Convolutional encoding
-    encoded_bits = convEnc(bits_ind.').'; % TODO doesnt give the same encoding signal, why??? IMPORTANT
-    
-    % Symbol repetition 
-    % Symbols shall not be repeated for a data rate of 9600bps, the one
-    % we are simulating (7-6)
-    % encoded_bits = repmat(encoded_bits, 1, NbTXBits/length(encoded_bits));
+    encoded_bits = convEnc(bits_ind.').';
     
     % Interleaver
     if strcmp(P.Interleaving, 'On')
@@ -92,7 +89,6 @@ for frame = 1:P.NumberOfFrames
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Simulation
-    
     switch P.ChannelType
         case {'AWGN','ByPass'}
             snoise = randn(1,NumberOfChips) + 1i* randn(1,NumberOfChips) ;      
@@ -129,11 +125,10 @@ for frame = 1:P.NumberOfFrames
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Receiver
-        switch P.ChannelType % Rake receiver makes no sense in this case
+        switch P.ChannelType
             case {'AWGN','ByPass'}
                 % Despreading
                 rxsymbols = conj(himp).*HadamSequence.'*reshape(y, P.HadLen, NbTXBits);
-                    
                 desp_bits = rxsymbols < 0; 
 
             case {'Multipath','Fading'} % Rake receiver
@@ -181,7 +176,7 @@ for frame = 1:P.NumberOfFrames
         end
         
         % Decoding Viterbi
-        decoded_bits = convDec((unPN_symbols).').'; % TODO, beurk beurk no??
+        decoded_bits = convDec((unPN_symbols).').';
         
         % Remove the bit encoding trail
         rxbits = decoded_bits(:,1:end-P.Q_Ind-(P.K-1)); 

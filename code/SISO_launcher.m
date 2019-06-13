@@ -11,7 +11,7 @@ clc; clear all; %close all;
 
 %% Parameters
 P.NumberOfFrames = 10;
-P.SNRRange = -35:1:-5; % SNR Range to simulate in dB
+P.SNRRange = -50:1:-20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172;
 P.Q_Ind = 12;
