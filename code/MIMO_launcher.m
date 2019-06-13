@@ -10,7 +10,7 @@
 clc; clear all;  close all;
 rng(2) %Random seed selection
 %% Parameters
-P.NumberOfFrames = 20;
+P.NumberOfFrames = 10;
 P.SNRRange = -50:10:20; % SNR Range to simulate in dB
 
 P.NumberOfBits = 172; 
@@ -25,7 +25,7 @@ P.IntrlvRows = 32; % For a rate of 9600bps
 P.Decision='Hard'; 
 
 %% Users and Antennas
-P.CDMAUsers     = 1;
+P.CDMAUsers     = 4;
 P.RXperUser     = 2;
 P.TXperUser     = 2;
 
@@ -36,7 +36,7 @@ P.ChannelType   = 'Multipath'; % 'Multipath', 'AWGN', 'ByPass'
 P.ChannelLength = 3; 
 P.RakeFingers = 2; 
 P.Detector = 'ZF'; % 'ZF', 'MMSE', 'SIC'
-P.Mode = 'HighRate'; % 'HighRate' or 'HighDiversity'
+P.Mode = 'HighDiversity'; % 'HighRate' or 'HighDiversity'
 
 %% Checks
 if(strcmp(P.Detector, 'ZF') && P.TXperUser > P.RXperUser)

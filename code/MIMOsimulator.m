@@ -38,7 +38,7 @@ function BER = MIMOsimulator(P)
             NumberOfChipsRX = NumberOfChips;
     end
 
-Results = zeros(1,length(P.SNRRange));
+Results = zeros(P.CDMAUsers,length(P.SNRRange));
 
 % Note that these are terminated, so they include the tail
 trellis = poly2trellis(P.K, P.ConvSeq);
@@ -322,13 +322,13 @@ for frame = 1:P.NumberOfFrames/P.CDMAUsers
         % Summing errors
         for user=1:P.CDMAUsers
             errors =  sum(sum(rxbits(user,:,:) ~= bits(user,:,:)));
-            Results(ss) = Results(ss) + errors;        
+            Results(user,ss) = Results(user,ss) + errors;        
         end
     end
 end
 if strcmp(P.Mode,'HighRate')
-    BER = Results/(P.NumberOfBits*P.NumberOfFrames*TX*P.CDMAUsers);
+    BER = mean(Results)/(P.NumberOfBits*P.NumberOfFrames*TX/P.CDMAUsers);
 else
-    BER = Results/(P.NumberOfBits*P.NumberOfFrames*P.CDMAUsers);
+    BER = mean(Results)/(P.NumberOfBits*P.NumberOfFrames/P.CDMAUsers);
 end
 end
